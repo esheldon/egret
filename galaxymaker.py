@@ -56,7 +56,10 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
 
         return image, wt
                                                                                                         
-    def _draw_galaxy_pair(self,g1s,g2s,psf,pixel,pixel_scale,nx=None,ny=None):
+    def get_galaxy_pair(self,psf,pixel,pixel_scale,nx=None,ny=None,g1s=None,g2s=None):
+        if g1s is None and g2s is None:
+            g1s,g2s = self._draw_gaussian_shape()
+        
         im1,wt1 = self._draw_galaxy(g1s,g2s,psf,pixel,pixel_scale,nx=nx,ny=ny)
         if nx is None and ny is None:
             nx,ny = im1.shape
@@ -64,7 +67,3 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
 
         return im1,wt1,im2,wt2
 
-    def get_galaxy_pair(self,psf,pixel,pixel_scale,nx=None,ny=None):
-        g1s,g2s = self._draw_gaussian_shape()
-        im1,wt1,im2,wt2 = self._draw_galaxy_pair(g1s,g2s,psf,pixel,pixel_scale,nx=nx,ny=ny)
-        return im1,wt1,im2,wt2
