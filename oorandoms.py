@@ -28,13 +28,13 @@ class OORandom(object):
         self.state = np.random.get_state()
         return rands
 
-    def normal(loc=0.0,scale=1.0,size=None):
+    def normal(self,loc=0.0,scale=1.0,size=None):
         np.random.set_state(self.state)
         rands = np.random.normal(loc=loc,scale=scale,size=size)
         self.state = np.random.get_state()
         return rands
 
-    def standard_t(df,size=None):
+    def standard_t(self,df,size=None):
         np.random.set_state(self.state)
         rands = np.random.student_t(df,size=size)
         self.state = np.random.get_state()

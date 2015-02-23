@@ -1,5 +1,7 @@
 import numpy as np
 
+from . import OORandom
+
 class GalaxyMaker(object):
     def __init__(self):
         raise NotImplementedError
@@ -10,7 +12,7 @@ class GalaxyMaker(object):
     def get_galaxy_pair(self):
         raise NotImplementedError
 
-class ConstShearExpGalaxyMaker(GalaxyMaker):
+class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
     import galsim
     
     def __init__(self,g1,g2,seed,**kw):
@@ -24,15 +26,16 @@ class ConstShearExpGalaxyMaker(GalaxyMaker):
 
         self.g1 = g1
         self.g2 = g2
-                
+        self.random = OORandom(seed)
+        self.gaussian_noise = galsim.GaussianNoise(galsim.BaseDeviate(seed),sigma=self.conf['noise'])
+        
     def _draw_gaussian_shape(self):
         ok = False
         while not ok:
-            g1 = np.random.normal()*self.conf['shape_noise']
-            g2 = np.random.normal()*self.conf['shape_noise']
+            g1 = self.random.normal()*self.conf['shape_noise']
+            g2 = self.random.normal()*self.conf['shape_noise']
             if np.abs(g1) < 1.0 and np.abs(g2) < 1.0 and g1*g1 + g2*g2 < 1.0:
                 ok = True
-
         return g1,g2
     
     def _draw_galaxy(self,g1s,g2s,psf,pixel,pixel_scale,nx=None,ny=None):
@@ -47,7 +50,7 @@ class ConstShearExpGalaxyMaker(GalaxyMaker):
         else:
             image_obj = gal_final.draw(scale=pixel_scale)
 
-        image_obj.addNoise(galsim.GaussianNoise(sigma=self.conf['noise']))
+        image_obj.addNoise(self.gaussian_noise)
         image1 = image_obj.array.astype('f8')
         wt = image*0.0 + (1.0/self.conf['noise']**2)
 
@@ -59,4 +62,9 @@ class ConstShearExpGalaxyMaker(GalaxyMaker):
             nx,ny = im1.shape
         im2,wt2 = self._draw_galaxy(-g1s,-g2s,psf,pixel,pixel_scale,nx=ny,ny=ny)
 
+        return im1,wt1,im2,wt2
+
+    def draw_galaxy_pair(self,psf,pixel,pixel_scale,nx=None,ny=None):
+        g1s,g2s = self._draw_gaussian_shape()
+        im1,wt1,im2,wt2 = self._draw_galaxy_pair(g1s,g2s,psf,pixel,pixel_scale,nx=nx,ny=ny)
         return im1,wt1,im2,wt2
