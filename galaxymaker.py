@@ -1,5 +1,4 @@
 import numpy as np
-
 from . import OORandom
 
 class GalaxyMaker(object):
@@ -38,7 +37,8 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
                 ok = True
         return g1,g2
     
-    def _draw_galaxy(self,g1s,g2s,psf,pixel,pixel_scale,nx=None,ny=None):
+    def _draw_galaxy(self,g1s,g2s,psf,pixel,nx=None,ny=None):
+        pixel_scale = pixel.getScale()
         gal = galsim.Sersic(1.0,
                             half_light_radius=self.conf['half_light_radius'],
                             flux=self.conf['flux'])
@@ -56,14 +56,16 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
 
         return image, wt
                                                                                                         
-    def get_galaxy_pair(self,psf,pixel,pixel_scale,nx=None,ny=None,g1s=None,g2s=None):
+    def get_galaxy_pair(self,psf,pixel,nx=None,ny=None,g1s=None,g2s=None):
         if g1s is None and g2s is None:
             g1s,g2s = self._draw_gaussian_shape()
+        else:
+            assert g1s is not None and g2s is not None, "You must specify both shape noise parameters!"
         
-        im1,wt1 = self._draw_galaxy(g1s,g2s,psf,pixel,pixel_scale,nx=nx,ny=ny)
+        im1,wt1 = self._draw_galaxy(g1s,g2s,psf,pixel,nx=nx,ny=ny)
         if nx is None and ny is None:
             nx,ny = im1.shape
-        im2,wt2 = self._draw_galaxy(-g1s,-g2s,psf,pixel,pixel_scale,nx=ny,ny=ny)
+        im2,wt2 = self._draw_galaxy(-g1s,-g2s,psf,pixel,nx=ny,ny=ny)
 
         return im1,wt1,im2,wt2
 
