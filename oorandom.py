@@ -1,5 +1,7 @@
 import numpy as np
 
+__all__ = ['OORandom','test']
+
 class OORandom(object):
     """
     Object Oriented Interface to numpy's random number generator

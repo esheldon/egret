@@ -2,6 +2,8 @@ import os
 import numpy as np
 import fitsio
 
+__all__ = ['MEDSMaker','test']
+
 class MEDSMaker(object):
     """
     Object to make MEDS files.
