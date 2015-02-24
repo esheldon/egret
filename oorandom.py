@@ -42,3 +42,36 @@ class OORandom(object):
 
     #add your favorite from numpy.random here
     
+def test():
+    # number of rngs to test and # of calls 
+    seeds = [1,2,3]
+    nseeds = len(seeds)
+    ncalls = 10000
+
+    #get results for each generator
+    base_res = {}
+    for seed in seeds:
+        rng = OORandom(seed)
+        base_res[seed] = []
+        for i in xrange(ncalls):
+            base_res[seed].append(rng.uniform())
+
+
+    #now call randomly 
+    test_res = {}
+    rngs = {}
+    for seed in seeds:
+        rngs[seed] = OORandom(seed)
+        test_res[seed] = []
+    for i in xrange(ncalls):
+        for seed in np.random.permutation(seeds):
+            test_res[seed].append(rngs[seed].uniform())
+
+    #compare
+    for seed in seeds:
+        assert set(base_res[seed]) == set(test_res[seed]),"RNG w/ seed %d failed!" % seed
+
+    print "OORandom passed all tests!"
+            
+
+    
