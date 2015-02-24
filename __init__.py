@@ -1,3 +1,5 @@
 #default imports
-from medsmaker import *
-from oorandom import *
+from .medsmaker import MEDSMaker
+from .oorandom import OORandom
+from . import galaxymaker
+

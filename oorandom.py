@@ -74,7 +74,4 @@ def test():
         assert set(base_res[seed]) == set(test_res[seed]),"RNG w/ seed %d failed!" % seed
 
     print "OORandom passed all tests!"
-            
 
-    
-del np

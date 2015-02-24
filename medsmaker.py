@@ -269,9 +269,3 @@ def test():
     os.remove('medstest.fit')
                 
     print "MEDSMaker passed all tests!"
-
-
-
-del os
-del np
-del fitsio
