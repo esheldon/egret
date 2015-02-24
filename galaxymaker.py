@@ -67,5 +67,10 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
             nx,ny = im1.shape
         im2,wt2 = self._draw_galaxy(-g1s,-g2s,psf,pixel,nx=ny,ny=ny)
 
-        return im1,wt1,im2,wt2
+        #return extra info
+        meta = {}
+        meta['g1s'] = g1s
+        meta['g2s'] = g2s
+        
+        return im1,wt1,im2,wt2,meta
 
