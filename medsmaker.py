@@ -8,16 +8,16 @@ class MEDSMaker(object):
     
     Example:
     
-    extra_data = [('cosmos_id','i8')]
-    extra_percutout_data = [('id_psf','i4')]
-    mm = MEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
-    objinfo = dict(id=id,number=number,file_id=file_id,orig_row=orig_row,orig_col=orig_col,
-                   orig_start_row=orig_start_row,orig_start_col=orig_start_col,
-                   dudrow=dudrow,dudcol=dudcol,dvdrow=dvdrow,dvdcol=dvdcol,
-                   cutout_row=cutout_row,cutout_col=cutout_col,
-                   cosmos_id=cosmos_id,id_psf=id_psf)    
-    mm.add_object(objinfo,[im1,im2,im3],[wgt1,wgt2,wgt3],[seg1,seg2,seg3])
-    mm.write('medstest.fit')    
+        extra_data = [('cosmos_id','i8')]
+        extra_percutout_data = [('id_psf','i4')]
+        mm = MEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
+        objinfo = dict(id=id,number=number,file_id=file_id,orig_row=orig_row,orig_col=orig_col,
+                       orig_start_row=orig_start_row,orig_start_col=orig_start_col,
+                       dudrow=dudrow,dudcol=dudcol,dvdrow=dvdrow,dvdcol=dvdcol,
+                       cutout_row=cutout_row,cutout_col=cutout_col,
+                       cosmos_id=cosmos_id,id_psf=id_psf)    
+        mm.add_object(objinfo,[im1,im2,im3],[wgt1,wgt2,wgt3],[seg1,seg2,seg3])
+        mm.write('medstest.fit')    
     """
     
     def __init__(self,extra_data=None,extra_percutout_data=None):
@@ -51,11 +51,11 @@ class MEDSMaker(object):
         """
         Adds an object to the file.
         
-        imgs, wgts and segs are all lists for each cutout
-        objinfo is a dict with all of the information needed for the 
-        MEDS object_data extension, except the box_size, # of cutouts and 
-        location in the MEDS image extensions. (These last things get 
-        computed by the MEDSMaker.        
+        imgs, wgts, segs: lists for each cutout        
+        objinfo: dict with all of the information needed for the 
+            MEDS object_data extension, except the box_size, # of cutouts and 
+            location in the MEDS image extensions. (These last things get 
+            computed by the MEDSMaker.)
         """
         assert len(imgs) == len(wgts)
         assert len(imgs) == len(segs)
@@ -227,10 +227,10 @@ def test():
                     'dudrow','dudcol','dvdrow','dvdcol','file_id',
                     'cutout_row','cutout_col']:
             assert np.array_equal(odata['oi'][tag],m[tag][ind,0:ncutout]),"Error writing tag '%s' in MEDSMaker!" % tag
-
+            
         for i in xrange(ncutout):
-            for tag,type in zip(['imgs','wgts','segs'],['image','weight','seg']):
-                assert np.array_equal(odata[tag][i],m.get_cutout(ind,i,type=type)),"Error in writing cutout %d for type '%s' in MEDSMaker!" % (i,type)
+            for tag,tpe in zip(['imgs','wgts','segs'],['image','weight','seg']):
+                assert np.array_equal(odata[tag][i],m.get_cutout(ind,i,type=tpe)),"Error in writing cutout %d for type '%s' in MEDSMaker!" % (i,tpe)
 
         return True
 
@@ -240,6 +240,7 @@ def test():
     
     obslist = []    
     obslist.append((make_test_obs(rng,0,(0,0),blank=True),0,(0,0)))
+    #obslist.append((make_test_obs(rng,1,(64,64)),1,(64,64)))
     obslist.append((make_test_obs(rng,1,(64,64)),1,(64,64)))
     obslist.append((make_test_obs(rng,11,(13,13)),11,(13,13)))
 
