@@ -84,37 +84,15 @@ class MEDSMaker(object):
         fitsio.write(name,odata,extname='object_data')
         self.odata = odata
 
-    def _write_pixel_sequence(self,name,pixlist,extname,dtype,max_pixels_in_mem=25000000):
+    def _write_pixel_sequence(self,name,pixlist,extname,dtype):
         pixels = []
-        start = True
+        for imgs in pixlist:
+            for img in imgs:
+                pixels.extend(list(img.reshape(-1)))
+        pixels = np.array(pixels,dtype=dtype)
+
         with fitsio.FITS(name,'rw') as fits:
-            for imgs in pixlist:
-                #get pixels for image
-                subpixels = []
-                for img in imgs:
-                    subpixels.extend(list(img.reshape(-1)))
-
-                #write if needed
-                if len(subpixels) + len(pixels) > max_pixels_in_mem:
-                    pixels = np.array(pixels,dtype=dtype)
-                    if start:
-                        start = False
-                        fits.write(pixels,extname=extname)
-                    else:
-                        fits[extname].append(pixels)
-                    pixels = []
-                    
-                #add to list
-                pixels.extend(subpixels)
-
-            #do last set if needed
-            if len(pixels) > 0:
-                pixels = np.array(pixels,dtype=dtype)
-                if start:
-                    start = False
-                    fits.write(pixels,extname=extname)
-                else:
-                    fits[extname].append(pixels)
+            fits.write(pixels,extname=extname,compress='RICE')
                 
     def _write_img_data(self,name):
         self._write_pixel_sequence(self,name,self.imglist,'image_cutouts','f4',max_pixels_in_mem=25000000)
