@@ -95,9 +95,8 @@ class MEDSMaker(object):
                 #set tags that need special attention
                 odata['ncutout'][i] = self.ncutouts[i]
                 odata['box_size'][i] = self.box_sizes[i]
-                for icut in xrange(odata['ncutout'][i]):
-                    odata['start_row'][i,icut] = self.start_rows[i][icut]
-
+                odata['start_row'][i,0:odata['ncutout'][i]] = np.array(self.start_rows[i][:])
+                
         fitsio.write(name,odata,extname='object_data')
         self.odata = odata
 
