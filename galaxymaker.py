@@ -1,5 +1,6 @@
 import numpy as np
-from . import OORandom
+from .oorandom import OORandom
+import galsim
 
 class GalaxyMaker(object):
     def __init__(self):
@@ -12,8 +13,6 @@ class GalaxyMaker(object):
         raise NotImplementedError
 
 class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
-    import galsim
-    
     def __init__(self,g1,g2,seed,**kw):
         #do config
         self.conf = {}
@@ -51,7 +50,7 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
             image_obj = gal_final.draw(scale=pixel_scale)
 
         image_obj.addNoise(self.gaussian_noise)
-        image1 = image_obj.array.astype('f8')
+        image = image_obj.array.astype('f8')
         wt = image*0.0 + (1.0/self.conf['noise']**2)
 
         return image, wt
@@ -71,6 +70,9 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
         meta = {}
         meta['g1s'] = g1s
         meta['g2s'] = g2s
+        meta['g1'] = self.g1
+        meta['g2'] = self.g2
+        meta.update(self.conf)
         
         return im1,wt1,im2,wt2,meta
 
