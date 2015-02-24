@@ -7,10 +7,13 @@ class MEDSMaker(object):
     """
 
     def __init__(self,extra_object_data_tags=None):
-        self.imglist = []
-        self.wgtlist = []
-        self.seglist = []
+        self.imgpixels = []
+        self.wgtpixels = []
+        self.segpixels = []
         self.objinfo = []
+        self.start_rows = []
+        self.ncutouts = []
+        self.box_sizes = []
         self.num_objs = 0
         self.max_cutouts = -1
         self.npix_tot = 0
@@ -22,18 +25,30 @@ class MEDSMaker(object):
         self.NEG_FLOAT_NONEVAL = -9999.0
         self.POS_FLOAT_NONEVAL = 9999.0
         
-    def add_objects(self,objinfo,imgs,wgts,segs=None):
+    def add_object(self,objinfo,imgs,wgts,segs):
+        assert len(imgs) == len(wgts)
+        assert len(imgs) == len(segs)
+                
         self.objinfo.append(objinfo)
-        self.imglist.append(imgs)
-        self.wgtlist.append(wgts)
-        self.seglist.append(segs)
+        start_rows = []
+        for img in imgs:
+            start_rows.append(self.npix_tot)
+            self.npix_tot += img.shape[0]*img.shape[1]
+        self.start_rows.append(start_rows)
         self.num_objs += 1
+        self.ncutouts.append(len(imgs))
         if len(imgs) > self.max_cutouts:
             self.max_cutouts = len(imgs)
 
-        for img in imgs:
-            self.npix_tot += img.shape[0]*img.shape[1]
-        
+        if len(imgs) > 0:
+            self.box_sizes.append(imgs[0].shape[0])
+        else:
+            self.box_sizes.append(0)
+            
+        for cuts,pixels in zip([imgs,wgts,segs],[self.imgpixels,self.wgtpixels,self.segpixels]):
+            for cut in cuts:
+                pixels.extend(list(cut.reshape(-1)))
+            
     def _get_object_data_dtype(self,nmax):
         dlist = [('number', '>i4'),
                  ('ncutout', '>i4'),
@@ -61,48 +76,22 @@ class MEDSMaker(object):
         dtype = self._get_object_data_dtype(self.max_cutouts)
         odata = np.zeros(self.num_objs,dtype=dtype)
         names = odata.dtype.names
-        odata['box_size'][:] = self.NEG_INT_NONEVAL
-        odata['start_row'][:,:] = self.NEG_INT_NONEVAL
-
+        
         #set info
-        npix = 0        
         for i,objinfo in enumerate(self.objinfo):
             for name in names:
                 if name in objinfo:
                     odata[name][i] = objinfo[name]
 
                 #set tags that need special attention
-                odata['ncutout'][i] = len(self.imglist[i])
-                if odata['ncutout'][i] > 0:
-                    odata['box_size'][i] = self.imglist[i][0].shape[0]
-                    for icut in xrange(odata['ncutout'][i]):
-                        odata['start_row'][i,icut] = npix
-                        imshape = self.imglist[i][icut].shape
-                        npix += imshape[0]*imshape[1]                        
+                odata['ncutout'][i] = self.ncutouts[i]
+                odata['box_size'][i] = self.box_sizes[i]
+                for icut in xrange(odata['ncutout'][i]):
+                    odata['start_row'][i,icut] = self.start_rows[i][icut]
 
-        assert npix == self.npix_tot
         fitsio.write(name,odata,extname='object_data')
         self.odata = odata
 
-    def _write_pixel_sequence(self,name,pixlist,extname,dtype):
-        pixels = []
-        for imgs in pixlist:
-            for img in imgs:
-                pixels.extend(list(img.reshape(-1)))
-        pixels = np.array(pixels,dtype=dtype)
-
-        with fitsio.FITS(name,'rw') as fits:
-            fits.write(pixels,extname=extname,compress='RICE')
-                
-    def _write_img_data(self,name):
-        self._write_pixel_sequence(self,name,self.imglist,'image_cutouts','f4',max_pixels_in_mem=25000000)
-
-    def _write_wgt_data(self,name):
-        self._write_pixel_sequence(self,name,self.wgtlist,'weight_cutouts','f4',max_pixels_in_mem=25000000)
-
-    def _write_seg_data(self,name):
-        self._write_pixel_sequence(self,name,self.seglist,'seg_cutouts','i2',max_pixels_in_mem=25000000)
-        
     def write(self,name,image_info,metadata,clobber=True):
         #clobber the file if needed
         if clobber and os.path.exists(name):
@@ -113,9 +102,20 @@ class MEDSMaker(object):
         fitsio.write(name,image_info,extname='image_info')
         fitsio.write(name,metadata,extname='metadata')
 
-        self._write_img_data(name)
-        self._write_wgt_data(name)
-        self._write_seg_data(name)
+        #write pixel info
+        self.imgpixels = np.array(self.imgpixels,dtype='f4')
+        fitsio.write(name,self.imgpixels,extname='image_cutouts',compress='RICE')
+        self.imgpixels = list(self.imgpixels)
+        
+        self.wgtpixels = np.array(self.wgtpixels,dtype='f4')
+        fitsio.write(name,self.wgtpixels,extname='weight_cutouts',compress='RICE')
+        self.wgtpixels = list(self.wgtpixels)
+        
+        self.segpixels = np.array(self.segpixels,dtype='i2')
+        fitsio.write(name,self.segpixels,extname='seg_cutouts',compress='RICE')
+        self.segpixels = list(self.segpixels)
 
+        
+        
         
         
