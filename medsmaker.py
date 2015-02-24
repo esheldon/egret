@@ -6,7 +6,7 @@ class MEDSMaker(object):
     Object to make MEDS files.
     """
 
-    def __init__(self,extra_object_data_tags=None):
+    def __init__(self,extra_object_data_tags=None,extra_percutout_names=None):
         self.imgpixels = []
         self.wgtpixels = []
         self.segpixels = []
@@ -18,6 +18,7 @@ class MEDSMaker(object):
         self.max_cutouts = -1
         self.npix_tot = 0
         self.extra_tags = extra_object_data_tags
+        self.extra_vector_names = extra_percutout_names
         
         #some defaults
         self.NEG_INT_NONEVAL = -9999
@@ -70,6 +71,11 @@ class MEDSMaker(object):
         if self.extra_tags is not None:
             dlist.extend(self.extra_tags)
 
+        self.vector_names = ['file_id','orig_row','orig_col','orig_start_row','orig_start_col',
+                             'dudrow','dudcol','dvdrow','dvdcol','cutout_row','cutout_col']
+        if self.extra_vector_names is not None:
+            self.vector_names.extend(self.extra_vector_names)
+            
         return np.dtype(dlist)
     
     def _write_object_data(self,name):
@@ -81,7 +87,10 @@ class MEDSMaker(object):
         for i,objinfo in enumerate(self.objinfo):
             for name in names:
                 if name in objinfo:
-                    odata[name][i] = objinfo[name]
+                    if name in self.vector_names:
+                        odata[name][i,0:self.ncutouts[i]] = objinfo[name][:]
+                    else:
+                        odata[name][i] = objinfo[name]
 
                 #set tags that need special attention
                 odata['ncutout'][i] = self.ncutouts[i]
