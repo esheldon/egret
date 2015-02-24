@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ['OORandom','test']
+__all__ = ['OORandom']
 
 class OORandom(object):
     """
@@ -77,3 +77,4 @@ def test():
             
 
     
+del np

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import fitsio
 
-__all__ = ['MEDSMaker','test']
+__all__ = ['MEDSMaker']
 
 class MEDSMaker(object):
     """
@@ -272,3 +272,6 @@ def test():
 
 
 
+del os
+del np
+del fitsio
