@@ -6,6 +6,34 @@ from .great3_cosmos_gals.galaxies import COSMOSGalaxyBuilder
 from .great3_cosmos_gals.noise import PlaceholderNoiseBuilder
 
 class COSMOSGalaxyMaker(GalaxyMaker):
+    """
+    Returns COSMOS galaxies as if viewed from the ground. 
+    
+    See the GREAT3 challenge docs for details. Code was pulled from the 
+    GREAT3 simulations code base.
+    
+    Examples:
+    
+    atmos_seeing = 0.55
+    cosmos_dir = '/path/to/data'
+    seed = 12345
+    cgm = COSMOSGalaxyMaker(seed,cosmos_dir)
+    
+    #build a catalog
+    cgm.build_catalog_for_seeing(seeing)
+    
+    # now draw from it
+    for i in xrange(10):
+        galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
+    
+    # you can also just draw galaxies at random, but then catalog is rebuilt each time
+    # which is slow.
+    galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
+    
+    #if you specify save_catalog=True, then you can skip the building step (the code
+    # will do it internally.
+    galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale,save_catalog=True)    
+    """
     def __init__(self,seed,cosmos_data,real_galaxy=True,preload=False,**kw):
         self.noise_mult = 1.0
         self.rng = galsim.UniformDeviate(seed)
@@ -38,7 +66,13 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         galinfo['seeing'] = seeing
         return galinfo
     
-    def _build_catalog_per_seeing(self,seeing,verbose=False,randomly_rotate=True):
+    def build_catalog_for_seeing(self,seeing,verbose=False,randomly_rotate=True):
+        """
+        Build a galaxy catalog a specific seeing value.
+        
+        If you build a catalog and then get galaxies with the same seeing value,
+        the code will skip subsequent building steps.
+        """
         nb = PlaceholderNoiseBuilder()
         nb_params = nb.generateEpochParameters(self.rng,1,seeing,self.noise_mult)
         # NOTE
@@ -51,16 +85,24 @@ class COSMOSGalaxyMaker(GalaxyMaker):
                                  nb.typical_variance)
         nrm = np.sum(self.catalogs[seeing][0]['weight'])
         self.catalogs[seeing][0]['weight'] /= nrm
-    
-    def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,reuse_catalog=False,verbose=False,randomly_rotate=True):
+
+    def get_catalog_for_seeing(self,seeing,verbose=False,randomly_rotate=True):
+        """
+        Get a catalog for a specific seeing value.
+        """
+        if seeing not in self.catalogs:
+            self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
+        return self.catalogs[seeing][0].copy()
+        
+    def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,verbose=False,randomly_rotate=True,save_catalog=False):
         """
         Get a galaxy from COSMOS postage stamp a la GREAT3.
         
         In GREAT3, seeing was set to atmospheric PSF FWHM.        
         """
-        if reuse_catalog:
-            if seeing not in self.catalogs:
-                self._build_catalog_per_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
+        if save_catalog or seeing in self.catalogs:
+            if seeing in not in self.catalogs:
+                self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
             
             #now get catalog
             catalog = self.catalogs[seeing][0]
