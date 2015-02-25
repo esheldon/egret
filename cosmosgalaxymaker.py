@@ -103,7 +103,8 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
         return self.catalogs[seeing][0].copy()
         
-    def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,verbose=False,randomly_rotate=True,save_catalog=False):
+    def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,verbose=False, \
+                   randomly_rotate=True,save_catalog=False):
         """
         Get a galaxy from COSMOS postage stamp a la GREAT3.
         
@@ -133,7 +134,8 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             record['n_epochs'] = n_epochs
             nb = PlaceholderNoiseBuilder()
             nb_params = nb.generateEpochParameters(self.rng,record['n_epochs'],seeing,self.noise_mult)
-            self.cosmosgb.generateCatalog(self.rng,[record],None,nb.typical_variance,self.noise_mult,seeing=seeing,verbose=verbose,randomly_rotate=randomly_rotate)
+            self.cosmosgb.generateCatalog(self.rng,[record],None,nb.typical_variance,self.noise_mult,seeing=seeing, \
+                                          verbose=verbose,randomly_rotate=randomly_rotate)
         
         galaxy = self.cosmosgb.makeGalSimObject(record, max_xsize, max_ysize, pixel_scale, self.rng)
         galinfo = {}
