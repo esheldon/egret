@@ -73,7 +73,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         galinfo['info'] = record
         galinfo['seeing'] = seeing
         galinfo['noise'] = np.sqrt(galinfo['noise_builder_params']['variance'])
-        return galinfo
+        return galaxy,galinfo
     
     def build_catalog_for_seeing(self,seeing,verbose=False,randomly_rotate=True):
         """
