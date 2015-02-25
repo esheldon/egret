@@ -554,7 +554,9 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
             all_indices[:] = use_indices[:]
             if randomly_rotate:
                 for ind in xrange(n_to_select):
-                    rot_angle[ind] = rng() * np.pi
+                    #rot_angle[ind] = rng() * np.pi
+                    #use 2*pi since gals may not have 180 deg symmetry 
+                    rot_angle[ind] = rng() * np.pi * 2.0
 
             #we will random sort just to be pedantic
             np.random.seed(int(rng() * 1000))
