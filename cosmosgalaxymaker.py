@@ -92,9 +92,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
                                                                self.noise_mult,seeing=seeing,verbose=verbose, \
                                                                randomly_rotate=randomly_rotate),
                                  nb.typical_variance)
-        nrm = np.sum(self.catalogs[seeing][0]['weight'])
-        self.catalogs[seeing][0]['weight'] /= nrm
-
+        
     def get_catalog_for_seeing(self,seeing,verbose=False,randomly_rotate=True):
         """
         Get a catalog for a specific seeing value.
@@ -116,11 +114,15 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             
             #now get catalog
             catalog = self.catalogs[seeing][0]
+            Ncosmos = len(catalog)
             
             #now draw at random with weights
             # seed numpy.random to get predictable behavior
             np.random.seed(int(self.rng() * 1000000))
-            randind = np.random.choice(len(catalog),replace=True,p=self.catalogs[seeing][0]['weight'])
+            while True:                
+                randind = np.random.choice(Ncosmos,replace=True)
+                if np.random.uniform() < self.catalogs[seeing][0]['weight'][randind]:
+                    break            
             record = catalog[randind].copy()
             record['n_epochs'] = n_epochs
             for tag in ["bulge_flux","disk_flux","flux_rescale"]:
