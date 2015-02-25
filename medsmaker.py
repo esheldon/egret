@@ -2,17 +2,17 @@ import os
 import numpy as np
 import fitsio
 
-__all__ = ['MEDSMaker']
+__all__ = ['MemoryMEDSMaker','DiskMEDSMaker']
 
-class MEDSMaker(object):
+class MemoryMEDSMaker(object):
     """
-    Object to make MEDS files.
+    Make MEDS files, buffering all data in memory.
     
     Example:
     
         extra_data = [('cosmos_id','i8')]
         extra_percutout_data = [('id_psf','i4')]
-        mm = MEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
+        mm = MemoryMEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
         objinfo = dict(id=id,number=number,file_id=file_id,orig_row=orig_row,orig_col=orig_col,
                        orig_start_row=orig_start_row,orig_start_col=orig_start_col,
                        dudrow=dudrow,dudcol=dudcol,dvdrow=dvdrow,dvdcol=dvdcol,
@@ -254,7 +254,7 @@ def test():
     import meds
     
     for perm in [[0,1],[1,0],[0,2],[2,0],[1,2],[2,1],[0,1,2],[2,0,1],[1,2,0],[0,2,1],[1,0,2],[2,1,0]]:
-        mm = MEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
+        mm = MemoryMEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
 
         for ind in perm:
             mm.add_object(obslist[ind][0]['oi'],
@@ -270,4 +270,4 @@ def test():
 
     os.remove('medstest.fit')
                 
-    print "MEDSMaker passed all tests!"
+    print "MemoryMEDSMaker passed all tests!"
