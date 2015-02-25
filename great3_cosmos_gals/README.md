@@ -1,6 +1,7 @@
 NOTE
 ====
-These are my hacked up versions of the GREAT3 simulation scripts.
+These are my hacked up versions of some of the GREAT3 simulation scripts.
+See the originals [here](https://github.com/barnabytprowe/great3-public).
 
 Matthew Becker, Stanford, early 2015
 
