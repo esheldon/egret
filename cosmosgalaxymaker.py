@@ -150,14 +150,16 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     def finish_galaxy_image(self,galim,final_galaxy,galinfo):
         """
         This routine finishes the galaxies after they have been PSF convolved, etc.
+        It adds the requested amount of noise in the galinfo dict to the image 
+        taking into account the noise already in the HST image.
         
-        Thus, you might want to do this stuff first...
+        You might want to do things like this first:
         
-            #galaxy.applyLensing(g1=g1, g2=g2, mu=1.0/np.abs(1.0 - g1*g1 - g2*g2))
-            final = galsim.Convolve([psf, pixel, galaxy], gsparams=params)
-        
-            #originally had normalization = 'f' - I think newer versions of galsim do this by default
+            galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
+            final = galsim.Convolve([psf, pixel, galaxy])        
             galim = final.draw(scale=pixel_scale)
+        
+        Doing the stuff above first matches how the GREAT3 sims were done.
         """
         if hasattr(final_galaxy,'noise'):
             current_var = final_galaxy.noise.applyWhiteningTo(galim)
