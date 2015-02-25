@@ -12,6 +12,14 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     See the GREAT3 challenge docs for details. Code was pulled from the 
     GREAT3 simulations code base.
     
+    You will need the COSMOS data, which can be downloaded from 
+    
+    http://great3.jb.man.ac.uk/leaderboard/data/public/COSMOS_23.5_training_sample.tar.gz
+    http://great3.jb.man.ac.uk/leaderboard/data/public/great3_galaxy_selection_files.tar.gz
+    
+    Once the data is unpacked, place all files in a single directory and feed this path to 
+    the code as `cosmos_dir` below.
+    
     Examples:
     
     atmos_seeing = 0.55
@@ -31,7 +39,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
     
     #if you specify save_catalog=True, then you can skip the building step (the code
-    # will do it internally.
+    # will do it internally).
     galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale,save_catalog=True)    
     """
     def __init__(self,seed,cosmos_data,real_galaxy=True,preload=False,**kw):
