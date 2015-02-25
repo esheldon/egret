@@ -110,7 +110,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         In GREAT3, seeing was set to atmospheric PSF FWHM.        
         """
         if save_catalog or seeing in self.catalogs:
-            if seeing in not in self.catalogs:
+            if seeing not in self.catalogs:
                 self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
             
             #now get catalog
