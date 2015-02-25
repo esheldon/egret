@@ -1,7 +1,8 @@
 NOTE
 ====
 These are my hacked up versions of the GREAT3 simulation scripts.
-- Matthew Becker, Stanford, early 2015
+
+Matthew Becker, Stanford, early 2015
 
 GREAT3 simulation scripts
 =========================
