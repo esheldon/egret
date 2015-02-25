@@ -1,5 +1,4 @@
 import numpy as np
-from .oorandom import OORandom
 import galsim
 
 from .galaxymaker import GalaxyMaker
@@ -17,7 +16,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         self.catalog_dtype = self.cosmosgb.generateSubfieldParameters()['schema']
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
-
+        
     def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,reuse_catalog=False,verbose=False,randomly_rotate=True):
         """
         Get a galaxy from COSMOS postage stamp a la GREAT3.
@@ -41,6 +40,8 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             catalog = self.catalogs[seeing][0]
             
             #now draw at random with weights
+            # seed numpy.random to get rpedictable behavior
+            np.random.seed(int(self.rng() * 1000000))
             randind = np.random.choice(len(catalog),replace=True,p=self.catalogs[seeing][0]['weight'])
             record = catalog[randind].copy()
             record['n_epochs'] = n_epochs
