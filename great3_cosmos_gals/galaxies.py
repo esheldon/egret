@@ -255,7 +255,7 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
         return dict(schema=gal_schema)
     # END OF HACK
 
-    def generateCatalog(self, rng, catalog, parameters, variance, noise_mult, seeing=None):
+    def generateCatalog(self, rng, catalog, parameters, variance, noise_mult, seeing=None, verbose=False, randomly_rotate=True):
         # Set up basic selection.
         # For space, the resolution and other selection criteria are one-dimensional arrays.
         # For ground, they are lists of galsim.LookupTables that can be used to interpolate to our
@@ -455,10 +455,13 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
              mask_cond
              ])
         useful_indices = indices[cond]
+
         # START OF HACK
         # how much did we keep?!
-        print " / Possible galaxies: ",len(useful_indices),len(indices)
+        if verbose:
+            print "using %d of %d COSMOS galaxies" % (len(useful_indices),len(indices))
         # END OF HACK
+
         # Note on the two image-based cuts: without them, for some example run, we lost a few %
         # (ground) and ~20% (space) of the sample.  For the latter, the change is driven by the fact
         # that more noise has to be added to whiten, so it's harder to pass the minimum-variance cut
@@ -466,46 +469,60 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
         # Note on the two mask cuts: when we impose these, the sample for space-based sims decreases
         # by another 1%.
 
-        # In the next bit, we choose a random selection of objects to use out of the above
-        # candidates.  Note that this part depends on constant vs. variable shear, since the number
-        # to draw depends on the method of b-mode shape noise.
-        if self.shear_type == "constant":
-            # START OF HACK
-            # I am going to just draw as many galaxies as needed for the input catalog
+        # START OF HACK
+        # if no catalog given, just return it all
+        if catalog is None:
+            dlist = self.generateSubfieldParameters()['schema']
+            dlist.append(('weight','f8'))
+            dlist.append(('n_epochs','i4'))
+            catalog = np.zeros(len(useful_indices),dtype=dlist)
+            use_indices = useful_indices.copy()
+            catalog['weight'][:] = self.rgc.weight[useful_indices]
+            catalog['n_epochs'][:] = 1
             n_to_select = len(catalog)
-            """
-            n_to_select = constants.nrows*constants.ncols/2
-            """
-            # END OF HACK
         else:
-            # START OF HACK
-            """
-            n_to_select = constants.nrows*constants.ncols
-            """
-            # END OF HACK
-            raise NotImplementedError("Hacked GREAT3 code does not support variable shear!")
+            # In the next bit, we choose a random selection of objects to use out of the above
+            # candidates.  Note that this part depends on constant vs. variable shear, since the number
+            # to draw depends on the method of b-mode shape noise.
+            if self.shear_type == "constant":
+                # START OF HACK
+                # I am going to just draw as many galaxies as needed for the input catalog
+                n_to_select = len(catalog)
+                """
+                n_to_select = constants.nrows*constants.ncols/2
+                """
+                # END OF HACK
+            else:
+                # START OF HACK
+                """
+                n_to_select = constants.nrows*constants.ncols
+                """
+                # END OF HACK
+                raise NotImplementedError("Hacked GREAT3 code does not support variable shear!")
 
-        # Select an index out of these, at random, and with replacement; however, need to apply
-        # size-dependent weight because of failure to make postage stamps preferentially for large
-        # galaxies.  Note: no weighting to account for known LSS fluctuations in COSMOS field.
-        use_indices = np.zeros(n_to_select)
-        for ind in range(n_to_select):
-            # Select a random value in [0...len(useful_indices)-1], which tells the index in the
-            # rgc.
-            rand_value = int(np.floor(rng() * len(useful_indices)))
-            rand_index = np.int(useful_indices[rand_value])
-
-            # Also select a test random number from 0-1.
-            test_rand = rng()
-
-            # If that test random number is > the weight for that galaxy in the rgc, then try again;
-            # otherwise, keep.
-            while test_rand > self.rgc.weight[rand_index]:
+            # Select an index out of these, at random, and with replacement; however, need to apply
+            # size-dependent weight because of failure to make postage stamps preferentially for large
+            # galaxies.  Note: no weighting to account for known LSS fluctuations in COSMOS field.
+            use_indices = np.zeros(n_to_select)
+            for ind in range(n_to_select):
+                # Select a random value in [0...len(useful_indices)-1], which tells the index in the
+                # rgc.
                 rand_value = int(np.floor(rng() * len(useful_indices)))
-                rand_index = useful_indices[rand_value]
+                rand_index = np.int(useful_indices[rand_value])
+                
+                # Also select a test random number from 0-1.
                 test_rand = rng()
-            use_indices[ind] = np.int(rand_index)
 
+                # If that test random number is > the weight for that galaxy in the rgc, then try again;
+                # otherwise, keep.
+                while test_rand > self.rgc.weight[rand_index]:
+                    rand_value = int(np.floor(rng() * len(useful_indices)))
+                    rand_index = useful_indices[rand_value]
+                    test_rand = rng()
+                use_indices[ind] = np.int(rand_index)
+
+        # END OF HACK
+            
         # Set up arrays with indices and rotation angles to ensure shape noise cancellation.  The
         # method of doing this depends on the shear type.
 
@@ -535,8 +552,9 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
             # Also, I won't be using any paired rotation angles, just a random rotation.
 
             all_indices[:] = use_indices[:]
-            for ind in xrange(n_to_select):
-                rot_angle[ind] = rng() * np.pi
+            if randomly_rotate:
+                for ind in xrange(n_to_select):
+                    rot_angle[ind] = rng() * np.pi
 
             #we will random sort just to be pedantic
             np.random.seed(int(rng() * 1000))
@@ -825,6 +843,11 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
                     record["disk_flux"] = 0.0
             ind += 1
 
+        # START OF HACK
+        # returning catalog
+        return catalog
+    # END OF HACK
+            
     # START OF HACK
     # probably don't need these?    
     """
