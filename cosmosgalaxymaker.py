@@ -34,7 +34,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     for i in xrange(10):
         galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
     
-    # you can also just draw galaxies at random, but then catalog is rebuilt each time
+    # you can also just draw galaxies at random, but then the catalog is rebuilt each time
     # which is slow.
     galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
     
