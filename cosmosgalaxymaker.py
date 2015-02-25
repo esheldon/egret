@@ -16,7 +16,42 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         self.catalog_dtype = self.cosmosgb.generateSubfieldParameters()['schema']
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
-        
+
+    def get_galaxy_from_info(self,record_in,seeing,n_epochs,max_xsize,max_ysize,pixel_scale):
+        """
+        Get a COSMOS galaxy from a specific row in table.
+        """
+        record = record_in.copy()
+        if record['n_epochs'] != n_epochs:
+            rat = float(record['n_epochs']/n_epochs)
+            record['n_epochs'] = n_epochs
+            for tag in ["bulge_flux","disk_flux","flux_rescale"]:
+                if tag in record.dtype.names:
+                    record[tag] *= rat
+        nb = PlaceholderNoiseBuilder()
+        nb_params = nb.generateEpochParameters(self.rng,record['n_epochs'],seeing,self.noise_mult)
+        galaxy = self.cosmosgb.makeGalSimObject(record, max_xsize, max_ysize, pixel_scale, self.rng)
+        galinfo = {}
+        galinfo['noise_builder'] = nb
+        galinfo['noise_builder_params'] = nb_params
+        galinfo['info'] = record
+        galinfo['seeing'] = seeing
+        return galinfo
+    
+    def _build_catalog_per_seeing(self,seeing,verbose=False,randomly_rotate=True):
+        nb = PlaceholderNoiseBuilder()
+        nb_params = nb.generateEpochParameters(self.rng,1,seeing,self.noise_mult)
+        # NOTE
+        # typical_variance is for SE by definition, so just make a typical gal for the seeing and one epoch
+        # will handle increased variance for multiple epochs below
+        # also will rescale flux comps below
+        self.catalogs[seeing] = (self.cosmosgb.generateCatalog(self.rng,None,None,nb.typical_variance, \
+                                                               self.noise_mult,seeing=seeing,verbose=verbose, \
+                                                               randomly_rotate=randomly_rotate),
+                                 nb.typical_variance)
+        nrm = np.sum(self.catalogs[seeing][0]['weight'])
+        self.catalogs[seeing][0]['weight'] /= nrm
+    
     def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,reuse_catalog=False,verbose=False,randomly_rotate=True):
         """
         Get a galaxy from COSMOS postage stamp a la GREAT3.
@@ -25,22 +60,13 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         """
         if reuse_catalog:
             if seeing not in self.catalogs:
-                nb = PlaceholderNoiseBuilder()
-                nb_params = nb.generateEpochParameters(self.rng,1,seeing,self.noise_mult)
-                # NOTE
-                # typical_variance is for SE by definition, so just make a typical gal for the seeing and one epoch
-                # will handle increased variance for multiple epochs below
-                # also will rescale flux comps below
-                self.catalogs[seeing] = (self.cosmosgb.generateCatalog(self.rng,None,None,nb.typical_variance,self.noise_mult,seeing=seeing),
-                                         nb.typical_variance)
-                nrm = np.sum(self.catalogs[seeing][0]['weight'])
-                self.catalogs[seeing][0]['weight'] /= nrm
-
+                self._build_catalog_per_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
+            
             #now get catalog
             catalog = self.catalogs[seeing][0]
             
             #now draw at random with weights
-            # seed numpy.random to get rpedictable behavior
+            # seed numpy.random to get predictable behavior
             np.random.seed(int(self.rng() * 1000000))
             randind = np.random.choice(len(catalog),replace=True,p=self.catalogs[seeing][0]['weight'])
             record = catalog[randind].copy()
@@ -57,13 +83,14 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             nb = PlaceholderNoiseBuilder()
             nb_params = nb.generateEpochParameters(self.rng,record['n_epochs'],seeing,self.noise_mult)
             self.cosmosgb.generateCatalog(self.rng,[record],None,nb.typical_variance,self.noise_mult,seeing=seeing,verbose=verbose,randomly_rotate=randomly_rotate)
-
+        
         galaxy = self.cosmosgb.makeGalSimObject(record, max_xsize, max_ysize, pixel_scale, self.rng)
         galinfo = {}
         galinfo['noise_builder'] = nb
         galinfo['noise_builder_params'] = nb_params
         galinfo['info'] = record.copy()
-
+        galinfo['seeing'] = seeing
+        
         return galaxy,galinfo
 
     def finish_galaxy_image(self,galim,final_galaxy,galinfo):
