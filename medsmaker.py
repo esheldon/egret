@@ -228,11 +228,13 @@ def test():
         for tag in ['orig_row','orig_col','orig_start_row','orig_start_col',
                     'dudrow','dudcol','dvdrow','dvdcol','file_id',
                     'cutout_row','cutout_col']:
-            assert np.array_equal(odata['oi'][tag],m[tag][ind,0:ncutout]),"Error writing tag '%s' in MEDSMaker!" % tag
+            assert np.array_equal(odata['oi'][tag],m[tag][ind,0:ncutout]), \
+                "Error writing tag '%s' in MEDSMaker!" % tag
             
         for i in xrange(ncutout):
             for tag,tpe in zip(['imgs','wgts','segs'],['image','weight','seg']):
-                assert np.array_equal(odata[tag][i],m.get_cutout(ind,i,type=tpe)),"Error in writing cutout %d for type '%s' in MEDSMaker!" % (i,tpe)
+                assert np.array_equal(odata[tag][i],m.get_cutout(ind,i,type=tpe)), \
+                    "Error in writing cutout %d for type '%s' in MEDSMaker!" % (i,tpe)
 
         return True
 
