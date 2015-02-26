@@ -20,6 +20,7 @@ class MemoryMEDSMaker(object):
                        cosmos_id=cosmos_id,id_psf=id_psf)    
         mm.add_object(objinfo,[im1,im2,im3],[wgt1,wgt2,wgt3],[seg1,seg2,seg3])
         mm.write('medstest.fit')    
+        mm.fpack(options=options) #pack the file with fpack
     """
     
     def __init__(self,extra_data=None,extra_percutout_data=None):
@@ -152,7 +153,7 @@ class MemoryMEDSMaker(object):
                 fname = self.fname
 
         assert fname is not None, \
-            "The filen ame was not given and the internal file name is not defined for fpack!"
+            "The file name was not given and the internal file name is not defined for fpack!"
         os.system('fpack %s %s' % (options,fname))        
         
     def write(self,name,image_info=None,metadata=None,clobber=True,compress=None):
@@ -294,7 +295,7 @@ class DiskMEDSMaker(object):
     """
     Make MEDS files given a defined set of objects and # of pixels
     
-    Exmaple:
+    Example:
     
     # make object data
     # must have at least box_size and ncutout fields, but
@@ -457,42 +458,79 @@ class DiskMEDSMaker(object):
                 self._write_buffer()                
 
             # now add pixels
-            self._add_to_buffer(imgpix,wgtpix,segpix,start_row_use)
+            self._add_to_buffer(imgpix,wgtpix,segpix,start_row_use,buffer_size)
         else:
             # just write to disk right away
             self._write_pixels(start_row_use,[imgpix,wgtpix,segpix],['image_cutouts','weight_cutouts','seg_cutouts'])
 
-    def _add_to_buffer(self,imgpix,wgtpix,segpix,start_row):
+    def _add_to_buffer(self,imgpix,wgtpix,segpix,start_row,buffer_size):
         """
         adds pixels to the buffer
         """
-        loc = None
 
+        if self.num_in_buffer + len(imgpix) > buffer_size:
+            self._write_buffer()
+        
         # search for pixels to add onto
-        for loc in self.img_buffer:
-            if loc + len(self.img_buffer[loc]) == start_row:
+        loc = None
+        for tloc in self.img_buffer:
+            if tloc + len(self.img_buffer[tloc]) == start_row:
+                loc = tloc
                 break
 
         if loc is not None:
             # if we found soemthing, then add on
-            self.img_buffer[loc].extend(list(impix))
+            self.img_buffer[loc].extend(list(imgpix))
             self.wgt_buffer[loc].extend(list(wgtpix))
             self.seg_buffer[loc].extend(list(segpix))            
         else:
             # just put in buffer
-            self.img_buffer[start_row] = list(impix)
+            self.img_buffer[start_row] = list(imgpix)
             self.wgt_buffer[start_row] = list(wgtpix)
             self.seg_buffer[start_row] = list(segpix)
-            self.num_in_buffer += len(impix)
+        self.num_in_buffer += len(imgpix)
 
+        # this is all well and good, but there might
+        # a key which could go at the end of our latest
+        # edition
+
+        # first get where data was put
+        if loc is None:
+            loc = start_row
+
+        # now look at all dicts and see if they could go at end of loc
+        oloc = None
+        for tloc in self.img_buffer:
+            if loc + len(self.img_buffer[loc]) == tloc:
+                oloc = tloc
+                break
+
+        if oloc is not None:
+            # extend
+            self.img_buffer[loc].extend(self.img_buffer[oloc])
+            self.wgt_buffer[loc].extend(self.wgt_buffer[oloc])
+            self.seg_buffer[loc].extend(self.seg_buffer[oloc])
+
+            # remove keys
+            del self.img_buffer[oloc]
+            del self.wgt_buffer[oloc]
+            del self.seg_buffer[oloc]
+            
     def _write_buffer(self):
+        # write to disk
         for start_row in self.img_buffer:
-            pixlist = [self.img_buffer[start_row], \
-                       self.wgt_buffer[start_row], \
-                       self.seg_buffer[start_row]]
+            pixlist = [np.array(self.img_buffer[start_row],dtype='f4'), \
+                       np.array(self.wgt_buffer[start_row],dtype='f4'), \
+                       np.array(self.seg_buffer[start_row],dtype='i2')]
             extlist = ['image_cutouts','weight_cutouts','seg_cutouts']
             self._write_pixels(start_row,pixlist,extlist)
-            
+
+        # reset
+        self.img_buffer = {}
+        self.wgt_buffer = {}
+        self.seg_buffer = {}
+        self.num_in_buffer = 0
+        
     def clear_buffer(self):
         """
         Clear the internal pixel buffer.
@@ -625,17 +663,11 @@ class DiskMEDSMaker(object):
         self.npix = loc
         
         return new_data
-            
-        
-        
-                
-        
-
 
     
-
 def _disk_test():
-    assert False,"DiskMEDSMaker is not define!"
+    print "DiskMEDSMaker is not defined!"
+    pass
     
         
 def test():
