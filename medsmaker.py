@@ -760,10 +760,10 @@ def _disk_test():
     # then read back and check that you get back the right thing
     odict = {}
     object_data = []
-    Nobj = 20000
-    nmax = 7
+    Nobj = 1000
+    nmax = 13
     ids = rng.choice(1000000,size=Nobj,replace=False)
-    nums = rng.choice(100000,size=Nobj,replace=False)
+    nums = rng.choice(1000000,size=Nobj,replace=False)
     for i in xrange(Nobj):
         ncutout = int(rng.uniform(low=0.5,high=nmax+0.5))
         sh = int(rng.uniform(low=16+0.5,high=64+0.5))
@@ -780,8 +780,7 @@ def _disk_test():
     object_data['number'] = nums
 
     import time
-    #for bf in [0,1,10000,1000000,100000000]:
-    for bf in [0,100000000]:
+    for bf in [0,1,10000,100000000]:
         print 'testing buffering:',bf
         t0 = time.time()
         for i in xrange(1):
