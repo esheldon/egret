@@ -1,5 +1,4 @@
 import numpy as np
-from .oorandom import OORandom
 import galsim
 
 class GalaxyMaker(object):
@@ -24,7 +23,7 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
 
         self.g1 = g1
         self.g2 = g2
-        self.random = OORandom(seed)
+        self.random = np.random.RandomState(seed)
         self.gaussian_noise = galsim.GaussianNoise(galsim.BaseDeviate(seed),sigma=self.conf['noise'])
         
     def _draw_gaussian_shape(self):

@@ -257,8 +257,7 @@ def _mem_test():
         return True
 
     #do tests
-    from .oorandom import OORandom
-    rng = OORandom(12345)
+    rng = np.random.RandomState(12345)
     
     obslist = []    
     obslist.append((make_test_obs(rng,0,(0,0),blank=True),0,(0,0)))
@@ -448,7 +447,13 @@ class DiskMEDSMaker(object):
                 self._add_to_buffer(imgpix,wgtpix,segpix,start_row_use,buffer_size)
             else:
                 # just write to disk right away
-                self._write_pixels(start_row_use,[imgpix,wgtpix,segpix],['image_cutouts','weight_cutouts','seg_cutouts'])
+                self._write_pixels(start_row_use, \
+                                   [np.array(imgpix,dtype='f4'), \
+                                    np.array(wgtpix,dtype='f4'), \
+                                    np.array(segpix,dtype='i2')], \
+                                   ['image_cutouts', \
+                                    'weight_cutouts', \
+                                    'seg_cutouts'])
 
     def _add_to_buffer(self,imgpix,wgtpix,segpix,start_row,buffer_size):
         """
@@ -467,14 +472,14 @@ class DiskMEDSMaker(object):
 
         if loc is not None:
             # if we found soemthing, then add on
-            self.img_buffer[loc].extend(list(imgpix))
-            self.wgt_buffer[loc].extend(list(wgtpix))
-            self.seg_buffer[loc].extend(list(segpix))            
+            self.img_buffer[loc].extend(imgpix)
+            self.wgt_buffer[loc].extend(wgtpix)
+            self.seg_buffer[loc].extend(segpix)
         else:
             # just put in buffer
-            self.img_buffer[start_row] = list(imgpix)
-            self.wgt_buffer[start_row] = list(wgtpix)
-            self.seg_buffer[start_row] = list(segpix)
+            self.img_buffer[start_row] = imgpix
+            self.wgt_buffer[start_row] = wgtpix
+            self.seg_buffer[start_row] = segpix
         self.num_in_buffer += len(imgpix)
 
         # this is all well and good, but there might
@@ -528,12 +533,6 @@ class DiskMEDSMaker(object):
         pixels = []
         for im in imlist:
             pixels.extend(list(im.reshape(-1)))
-
-        if len(pixels) > 0:
-            dtype = imlist[0].dtype
-            pixels = np.array(pixels,dtype=dtype)
-        else:
-            pixels = np.array([])
         return pixels
         
     def _write_pixels(self,start_row,pixlist,extlist):
@@ -751,8 +750,7 @@ def _disk_test():
 
     # stuff for tests
     fname = 'medstest.fit'
-    from .oorandom import OORandom
-    rng = OORandom(12345)
+    rng = np.random.RandomState(12345)
     import meds
     
     # make a list of entries
@@ -766,7 +764,7 @@ def _disk_test():
     nums = rng.choice(1000000,size=Nobj,replace=False)
     for i in xrange(Nobj):
         ncutout = int(rng.uniform(low=0.5,high=nmax+0.5))
-        sh = int(rng.uniform(low=16+0.5,high=64+0.5))
+        sh = int(rng.uniform(low=32+0.5,high=256+0.5))
         if rng.uniform() < 0.1:
             odata = make_test_obs(rng,ncutout,(sh,sh),nmax,blank=True)
         else:
@@ -780,7 +778,7 @@ def _disk_test():
     object_data['number'] = nums
 
     import time
-    for bf in [0,1,10000,100000000]:
+    for bf in [100000000/4,0,1,1000]:
         print 'testing buffering:',bf
         t0 = time.time()
         for i in xrange(1):

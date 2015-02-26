@@ -45,6 +45,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     def __init__(self,seed,cosmos_data,real_galaxy=True,preload=False,**kw):
         self.noise_mult = 1.0
         self.rng = galsim.UniformDeviate(seed)
+        self.rng_np = np.random.RandomState(int(self.rng() * 1000000))
         self.cosmos_data = cosmos_data
         self.preload = preload
         self.cosmosgb = COSMOSGalaxyBuilder(real_galaxy,cosmos_data,preload=preload)
@@ -118,10 +119,9 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             
             #now draw at random with weights
             # seed numpy.random to get predictable behavior
-            np.random.seed(int(self.rng() * 1000000))
             while True:                
-                randind = np.random.choice(Ncosmos,replace=True)
-                if np.random.uniform() < self.catalogs[seeing][0]['weight'][randind]:
+                randind = self.rng_np.choice(Ncosmos,replace=True)
+                if self.rng_np.uniform() < self.catalogs[seeing][0]['weight'][randind]:
                     break            
             record = catalog[randind].copy()
             record['n_epochs'] = n_epochs
