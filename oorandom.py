@@ -42,6 +42,30 @@ class OORandom(object):
         self.state = np.random.get_state()
         return rands
 
+    def permutation(self,x):
+        np.random.set_state(self.state)
+        rands = np.random.permutation(x)
+        self.state = np.random.get_state()
+        return rands
+
+    def random_integers(self, low, high=None, size=None):
+        np.random.set_state(self.state)
+        rands = np.random.random_integers(low, high=high, size=size)
+        self.state = np.random.get_state()
+        return rands
+
+    def randint(self, low, high=None, size=None):
+        np.random.set_state(self.state)
+        rands = np.random.randint(low, high=high, size=size)
+        self.state = np.random.get_state()
+        return rands
+
+    def choice(self, a, size=None, replace=True, p=None):
+        np.random.set_state(self.state)
+        rands = np.random.choice(a, size=size, replace=replace, p=p)
+        self.state = np.random.get_state()
+        return rands
+    
     #add your favorite from numpy.random here
     
 def test():

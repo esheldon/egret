@@ -198,7 +198,7 @@ class MemoryMEDSMaker(object):
 
 def _mem_test():
     """
-    Test suite for MEDSMaker
+    Test suite for MemoryMEDSMaker
     """
 
     #function for test obs
@@ -284,7 +284,8 @@ def _mem_test():
 
         with meds.MEDS('medstest.fit') as m: 
             for mind,ind in enumerate(perm):
-                comp_odata_medsind(obslist[ind][0],obslist[ind][1],obslist[ind][2],mind,m)
+                assert comp_odata_medsind(obslist[ind][0],obslist[ind][1],obslist[ind][2],mind,m), \
+                    "Error in writing object %d to MEDS!" % ind
 
     os.remove('medstest.fit')
                 
@@ -315,7 +316,7 @@ class DiskMEDSMaker(object):
     imgs = [im1,...]
     wgts = [wgt1,...]
     segs = [seg1,...]
-    mm.add_object(objinfo,imgs,wgts,segs,...)
+    mm.add_image_data(imgs,wgts,segs,...)
     
     # in the ... above one must specify exactly one way to 
     # add an object.
@@ -323,8 +324,6 @@ class DiskMEDSMaker(object):
     #  0) specify start_row as keyword
     #  1) specify id as keyword
     #  2) specify number as keyword
-    #  3) use one of 0) 1) or 2) (in that order) but pulling data 
-    #     from objinfo
     # 
     # In the case of ids or numbers, the internal object_data table 
     # is searched with np.where and the location specified is used.
@@ -333,7 +332,7 @@ class DiskMEDSMaker(object):
     
     # one can buffer the pixels in memory to try and do more efficient I/O
     # if you do this, you have to clear the buffer at the end with
-    mm.clear_buffer()
+    mm.flush_buffer()
     
     # finally, one usually wants to fpack these files
     # assuming fpack is on your machine, there is a method that will 
@@ -343,8 +342,12 @@ class DiskMEDSMaker(object):
     mm.fpack(options=options)
     """
 
-    def __init__(self,fname,object_data,image_info=None,metadata=None):
+    def __init__(self,fname,object_data,image_info=None,metadata=None,nmax=None):
         self.fname = fname
+        if nmax is None:
+            self.nmax = -1
+        else:
+            self.nmax = nmax
         self.object_data = self._init_object_data(object_data)
         self.image_info = image_info
         self.metadata = metadata
@@ -381,14 +384,12 @@ class DiskMEDSMaker(object):
         """
         return self.object_data.copy()    
         
-    def add_object(self,objinfo,imgs,wgts,segs,id=None,number=None, \
-                   start_row=None,buffer_size=0):
+    def add_image_data(self,imgs,wgts,segs,id=None,number=None, \
+                 start_row=None,buffer_size=0):
         """
         Adds an object's images to the file.
         
         imgs, wgts, segs: lists with each cutout        
-        objinfo: dict with all of the information needed for the 
-            MEDS object_data extension
         id: object id to find location
         number: object number to find location
         start_row: location in MEDS file
@@ -404,9 +405,7 @@ class DiskMEDSMaker(object):
           0) specify start_row as keyword
           1) specify id as keyword
           2) specify number as keyword
-          3) use one of 0) 1) or 2) (in that order) but pulling data 
-             from objinfo
-         
+        
         In the case of ids or numbers, the internal object_data table 
         is searched with numpy.where and the location specified is used.
         This is probably slow, so passing start_row is better if you can 
@@ -422,46 +421,34 @@ class DiskMEDSMaker(object):
             assert len(q) == 1, \
                 "Could not find object by id or multiple objects with same id! id = %d, # found = %d" \
                 % (id,len(q))
-            start_row_use = self.object_data['start_row'][q[0]]
+            start_row_use = self.object_data['start_row'][q[0],0]
         elif number is not None:
             q, = np.where(self.object_data['number'] == number)
             assert len(q) == 1, \
                 "Could not find object by number or multiple objects with same number! number = %d, # found = %d" \
                 % (number,len(q))
-            start_row_use = self.object_data['start_row'][q[0]]
-        elif objinfo is not None and 'start_row' in objinfo:
-            start_row_use = objinfo['start_row']
-        elif objinfo is not None and 'id' in objinfo:
-            q, = np.where(self.object_data['id'] == objinfo['id'])
-            assert len(q) == 1, \
-                "Could not find object by id or multiple objects with same id! id = %d, # found = %d" \
-                % (objinfo['id'],len(q))
-            start_row_use = self.object_data['start_row'][q[0]]
-        elif objinfo is not None and 'number' in objinfo:
-            q, = np.where(self.object_data['number'] == objinfo['number'])
-            assert len(q) == 1, \
-                "Could not find object by number or multiple objects with same number! number = %d, # found = %d" \
-                % (objinfo['number'],len(q))
-            start_row_use = self.object_data['start_row'][q[0]]
+            start_row_use = self.object_data['start_row'][q[0],0]
         else:
             assert False,"No valid way to locate object in file given!"
 
-        # now write the data
-        imgpix = self._concat_pixels(imgs)
-        wgtpix = self._concat_pixels(wgts)
-        segpix = self._concat_pixels(segs)
+        # write data if present
+        if len(imgs) == len(wgts) and len(wgts) == len(segs) and len(imgs) > 0:
+            # now write the data
+            imgpix = self._concat_pixels(imgs)
+            wgtpix = self._concat_pixels(wgts)
+            segpix = self._concat_pixels(segs)
+            
+            if buffer_size > 0:
+                # if buffering, always check that don't
+                # have too much
+                if self.num_in_buffer > buffer_size:
+                    self._write_buffer()                
 
-        if buffer_size > 0:
-            # if buffering, always check that don't
-            # have too much
-            if self.num_in_buffer > buffer_size:
-                self._write_buffer()                
-
-            # now add pixels
-            self._add_to_buffer(imgpix,wgtpix,segpix,start_row_use,buffer_size)
-        else:
-            # just write to disk right away
-            self._write_pixels(start_row_use,[imgpix,wgtpix,segpix],['image_cutouts','weight_cutouts','seg_cutouts'])
+                # now add pixels
+                self._add_to_buffer(imgpix,wgtpix,segpix,start_row_use,buffer_size)
+            else:
+                # just write to disk right away
+                self._write_pixels(start_row_use,[imgpix,wgtpix,segpix],['image_cutouts','weight_cutouts','seg_cutouts'])
 
     def _add_to_buffer(self,imgpix,wgtpix,segpix,start_row,buffer_size):
         """
@@ -531,7 +518,7 @@ class DiskMEDSMaker(object):
         self.seg_buffer = {}
         self.num_in_buffer = 0
         
-    def clear_buffer(self):
+    def flush_buffer(self):
         """
         Clear the internal pixel buffer.
         """
@@ -594,20 +581,26 @@ class DiskMEDSMaker(object):
 
         # get nmax and verify vector fields
         vector_names = ['file_id','orig_row','orig_col','orig_start_row','orig_start_col',
-                        'dudrow','dudcol','dvdrow','dvdcol','cutout_row','cutout_col']
-        nmax = -1
+                        'dudrow','dudcol','dvdrow','dvdcol','cutout_row','cutout_col']        
         for nm in vector_names:
             if nm in namesin:
-                if nmax < 0:
-                    nmax = len(object_data[nm][0,:])
+                loc = namesin.index(nm)
+                assert len(din[loc]) == 3, \
+                    "data type for '%s' is not correct!" % nm
+                if self.nmax < 0:
+                    self.nmax = len(object_data[nm][0,:])
                 else:
-                    assert nmax == len(object_data[nm][0,:]), \
+                    assert self.nmax == len(object_data[nm][0,:]), \
                         "field '%s' in object_data is not the right shape!" % nm
-        self.nmax = nmax
-        assert nmax >= 2, \
-            "One must have a maximum of at least 2 cutouts to avoid numpy tossing dimensions!"
 
+        assert self.nmax != -1, \
+            "One must pass enough information to determine nmax!"
+        
+        assert self.nmax >= 2, \
+            "One must have a maximum of at least 2 cutouts to avoid numpy tossing dimensions!"
+        
         # now can make dtype
+        nmax = self.nmax
         dlist = [('number', 'i4'),
                  ('ncutout', 'i4'),
                  ('id', 'i4'),
@@ -635,8 +628,12 @@ class DiskMEDSMaker(object):
             #make sure entry is OK
             if tup[0] in namesin:
                 loc = namesin.index(tup[0])
-                assert din[loc][2] == tup[2] and din[loc][1][-2:] == tup[1], \
-                    "data type for '%s' is not correct!" % tup[0]
+                if tup[0] in vector_names:
+                    assert din[loc][2] == tup[2] and din[loc][1][-2:] == tup[1], \
+                        "data type for '%s' is not correct!" % tup[0]
+                else:
+                    assert din[loc][1][-2:] == tup[1], \
+                        "data type for '%s' is not correct!" % tup[0]
 
         # add other entries if needed
         remake_data = False
@@ -653,23 +650,303 @@ class DiskMEDSMaker(object):
                 new_data[nm] = object_data[nm]
         else:
             new_data = object_data
-
+        Nobjs = len(new_data)
+        
         # now fill out start_row
         loc = 0
         for i in xrange(Nobjs):
-            if new_data['ncutout'] > 0:
-                new_data['start_row'][i] = loc
-                loc += new_data['box_size'][i]*new_data['box_size'][i]*new_data['ncutout'][i]
+            for j in xrange(new_data['ncutout'][i]):
+                new_data['start_row'][i,j] = loc
+                loc += new_data['box_size'][i]*new_data['box_size'][i]
         self.npix = loc
         
         return new_data
 
     
 def _disk_test():
-    print "DiskMEDSMaker is not defined!"
-    pass
+    """
+    Test suite for DiskMEDSMaker
+    """
     
+    #function for test obs
+    def make_test_obs(rng,ncutout,shape,nmax,blank=False,mindata=False):
+        dlist = [('box_size','i4'),('ncutout','i4')]
+        if not mindata:
+            dlist.extend([('cosmos_id','i8'),
+                          ('id_psf','i8',(nmax,)),
+                          ('number', 'i4'),
+                          ('id', 'i4'),
+                          ('file_id', 'i4', (nmax,)),
+                          ('start_row', 'i4', (nmax,)),
+                          ('orig_row', 'f8', (nmax,)),
+                          ('orig_col', 'f8', (nmax,)),
+                          ('orig_start_row', 'i4', (nmax,)),
+                          ('orig_start_col', 'i4', (nmax,)),
+                          ('dudrow', 'f8', (nmax,)),
+                          ('dudcol', 'f8', (nmax,)),
+                          ('dvdrow', 'f8', (nmax,)),
+                          ('dvdcol', 'f8', (nmax,)),
+                          ('cutout_row', 'f8', (nmax,)),
+                          ('cutout_col', 'f8', (nmax,))])
         
+        oi = np.zeros(1,dtype=dlist)
+        oi['box_size'][0] = shape[0]
+        if not blank:
+            oi['ncutout'][0] = ncutout
+        
+        odata = {}
+        odata['oi'] = oi
+        odata['imgs'] = []
+        odata['wgts'] = []
+        odata['segs'] = []
+        
+        if not mindata:
+            for tag in ['id','number','cosmos_id']:
+                oi[tag] = rng.randint(low=0,high=1e6)
+
+            if ncutout > 0:
+                for tag in ['id_psf','file_id','orig_start_row','orig_start_col']:
+                    if not blank:
+                        oi[tag][0,0:ncutout] = rng.randint(low=0,high=1e6,size=ncutout)
+                    else:
+                        oi[tag][0,0:ncutout] = np.zeros(ncutout,dtype='i4')
+
+                for tag in ['orig_row','orig_col',
+                            'dudrow','dudcol','dvdrow','dvdcol',
+                        'cutout_row','cutout_col']:
+                    if not blank:
+                        oi[tag][0,0:ncutout] = rng.uniform(low=0,high=1e6,size=ncutout)
+                    else:
+                        oi[tag][0,0:ncutout] = np.zeros(ncutout,dtype='f8')
+
+        if not blank:
+            for i in xrange(ncutout):
+                odata['imgs'].append(rng.uniform(low=0,high=1e6,size=shape).astype('f4'))
+                odata['wgts'].append(rng.uniform(low=0,high=1e6,size=shape).astype('f4'))
+                odata['segs'].append(rng.uniform(low=0,high=1e6,size=shape).astype('i2'))
+        
+        return odata
+
+    #comp test obs to meds ind
+    def comp_odata_medsind(odata,ncutout,shape,ind,m,mindata=False):
+        assert m['ncutout'][ind] == ncutout,"Error computing 'ncutout' in MEDSMaker!"
+        assert m['box_size'][ind] == shape[0],"Error computing 'box_size' in MEDSMaker!"
+
+        if not mindata:
+            for tag in ['id','number','cosmos_id']:
+                assert odata['oi'][tag] == m[tag][ind],"Error writing tag '%s' in MEDSMaker!" % tag
+
+            if ncutout > 0:
+                for tag in ['orig_row','orig_col','orig_start_row','orig_start_col',
+                            'dudrow','dudcol','dvdrow','dvdcol','file_id',
+                            'cutout_row','cutout_col']:
+                    assert np.array_equal(odata['oi'][tag][0,0:ncutout],m[tag][ind,0:ncutout]), \
+                        "Error writing tag '%s' in MEDSMaker!" % tag
+            
+        for i in xrange(ncutout):
+            for tag,tpe in zip(['imgs','wgts','segs'],['image','weight','seg']):
+                assert np.array_equal(odata[tag][i],m.get_cutout(ind,i,type=tpe)), \
+                    "Error in writing cutout %d for type '%s' in MEDSMaker!" % (i,tpe)
+        return True
+
+    # stuff for tests
+    fname = 'medstest.fit'
+    from .oorandom import OORandom
+    rng = OORandom(12345)
+    import meds
+    
+    # make a list of entries
+    # randomly permute them and use all different ways of writing them
+    # then read back and check that you get back the right thing
+    odict = {}
+    object_data = []
+    Nobj = 20000
+    nmax = 7
+    ids = rng.choice(1000000,size=Nobj,replace=False)
+    nums = rng.choice(100000,size=Nobj,replace=False)
+    for i in xrange(Nobj):
+        ncutout = int(rng.uniform(low=0.5,high=nmax+0.5))
+        sh = int(rng.uniform(low=16+0.5,high=64+0.5))
+        if rng.uniform() < 0.1:
+            odata = make_test_obs(rng,ncutout,(sh,sh),nmax,blank=True)
+        else:
+            odata = make_test_obs(rng,ncutout,(sh,sh),nmax,blank=False)
+        odata['oi']['id'][0] = ids[i]
+        odata['oi']['number'][0] = nums[i]
+        odict[ids[i]] = odata
+        object_data.append(tuple(odata['oi'][0]))
+    object_data = np.array(object_data,dtype=odata['oi'].dtype)
+    object_data['id'] = ids
+    object_data['number'] = nums
+
+    import time
+    #for bf in [0,1,10000,1000000,100000000]:
+    for bf in [0,100000000]:
+        print 'testing buffering:',bf
+        t0 = time.time()
+        for i in xrange(1):
+            mm = DiskMEDSMaker(fname,object_data)
+            ood = mm.get_object_data()
+            if i == 0:
+                # write in order to test buffering
+                pinds = np.arange(Nobj)
+            elif i == 1:
+                # write blocks backwards to test buffering
+                pinds = np.arange(Nobj)
+                pinds[0] = 3
+                pinds[1] = 4
+                pinds[2] = 5
+                pinds[3] = 0
+                pinds[4] = 1
+                pinds[5] = 2
+            else:
+                # just do it randomly
+                pinds = rng.permutation(Nobj)
+
+            for ind in pinds:
+                assert ood['id'][ind] == object_data['id'][ind], \
+                    "output object_data does not match input!"
+
+                # randomly turn on and off buffering
+                if i == 4 and rng.uniform() < 0.5:
+                    bf_fac = 0
+                else:
+                    bf_fac = 1
+                
+                chc = int(rng.uniform(low=0,high=3.0))
+                if chc == 0:
+                    mm.add_image_data(odict[object_data['id'][ind]]['imgs'], \
+                                      odict[object_data['id'][ind]]['wgts'], \
+                                      odict[object_data['id'][ind]]['segs'], \
+                                      id=object_data['id'][ind],buffer_size=bf*bf_fac)
+                elif chc == 1:
+                    mm.add_image_data(odict[object_data['id'][ind]]['imgs'], \
+                                      odict[object_data['id'][ind]]['wgts'], \
+                                      odict[object_data['id'][ind]]['segs'], \
+                                      number=object_data['number'][ind],buffer_size=bf*bf_fac)
+                else:
+                    mm.add_image_data(odict[object_data['id'][ind]]['imgs'], \
+                                      odict[object_data['id'][ind]]['wgts'], \
+                                      odict[object_data['id'][ind]]['segs'], \
+                                      start_row=ood['start_row'][ind,0],buffer_size=bf*bf_fac)
+            mm.flush_buffer()
+            
+            with meds.MEDS('medstest.fit') as m:
+                for ind in xrange(Nobj):
+                    assert comp_odata_medsind(odict[object_data['id'][ind]], \
+                                              object_data['ncutout'][ind], \
+                                              (object_data['box_size'][ind],object_data['box_size'][ind]), \
+                                              ind,m), \
+                        "Error in writing index %d to MEDS!" % ind
+        t0 = time.time() - t0
+        print 'time: %lf seconds' % t0
+        
+    #check duplicate indexes
+    object_data['id'] = ids
+    object_data['number'] = nums
+    object_data['id'][100] = object_data['id'][0]
+    ok = False
+    try:
+        ind = 100
+        mm = DiskMEDSMaker(fname,object_data)
+        mm.add_image_data(odict[object_data['id'][ind]]['imgs'], \
+                          odict[object_data['id'][ind]]['wgts'], \
+                          odict[object_data['id'][ind]]['segs'], \
+                          id=object_data['id'][ind])
+    except AssertionError as e:
+        ok = True
+        print "caught error on purpose:",e
+        pass
+    assert ok,"DiskMEDSMaker did not catch duplicate id!"
+
+    object_data['id'] = ids
+    object_data['number'] = nums
+    object_data['number'][100] = object_data['number'][0]
+    ok = False
+    try:
+        ind = 100
+        mm = DiskMEDSMaker(fname,object_data)
+        mm.add_image_data(odict[object_data['id'][ind]]['imgs'], \
+                          odict[object_data['id'][ind]]['wgts'], \
+                          odict[object_data['id'][ind]]['segs'], \
+                          number=object_data['number'][ind])
+    except AssertionError as e:
+        ok = True
+        print "caught error on purpose:",e
+        pass
+    assert ok,"DiskMEDSMaker did not catch duplicate number!"
+                    
+    os.remove(fname)
+            
+    ########################################
+    # now check that error checking works
+    ########################################
+    
+    # nmax <= 1
+    for mindata in [False]:
+        for blank in [True,False]:
+            for ncutout in [0,1]:
+                odata = make_test_obs(rng,ncutout,(16,16),1,blank=blank,mindata=mindata)
+                ok = False
+                try:
+                    mm = DiskMEDSMaker(fname,odata['oi'])
+                except AssertionError as e:
+                    ok = True
+                    print "caught error on purpose:",e
+                    pass
+                assert ok,"DiskMEDSMaker did not catch too small nmax!"
+
+    # nmax not given
+    for mindata in [True]:
+        for blank in [True,False]:
+            for ncutout in [0,1]:
+                odata = make_test_obs(rng,ncutout,(16,16),5,blank=blank,mindata=mindata)
+                ok = False
+                try:
+                    mm = DiskMEDSMaker(fname,odata['oi'])
+                except AssertionError as e:
+                    ok = True
+                    print "caught error on purpose:",e
+                    pass
+                assert ok,"DiskMEDSMaker did not catch nmax not given!"
+
+    # give wrong nmax
+    odata = make_test_obs(rng,ncutout,(16,16),5)
+    ok = False
+    try:
+        mm = DiskMEDSMaker(fname,odata['oi'],nmax=10)
+    except AssertionError as e:
+        ok = True
+        print "caught error on purpose:",e
+        pass
+    assert ok,"DiskMEDSMaker did not catch wrong nmax!"
+
+    # make odata without proper fields
+    for dhave in [('box_size','i4'),('ncutout','i4')]:
+        oi = np.zeros(1,dtype=[dhave])
+        ok = False
+        try:
+            mm = DiskMEDSMaker(fname,oi,nmax=10)
+        except AssertionError as e:
+            ok = True
+            print "caught error on purpose:",e
+            pass
+        assert ok,"DiskMEDSMaker did not catch missing required field %s!" % dhave[0]
+
+    # make fields with wrong dtype
+    for dhave in [('orig_row','i4'),('number','f8'),('dudrow','f8',(3,))]:
+        oi = np.zeros(1,dtype=[dhave,('file_id','i4',(5,)),('box_size','i4'),('ncutout','i4'),('dudcol','f8',(5,))])
+        ok = False
+        try:
+            mm = DiskMEDSMaker(fname,oi)
+        except AssertionError as e:
+            print "caught error on purpose:",e
+            ok = True            
+            pass
+        assert ok,"DiskMEDSMaker did not catch improperly formatted field %s!" % dhave[0]
+
+    print 'DiskMEDSMaker passed all tests!'
+
 def test():
-    _mem_test()
     _disk_test()
+    _mem_test()
