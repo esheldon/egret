@@ -1,5 +1,7 @@
 #default imports
 from .medsmaker import MemoryMEDSMaker
-from . import galaxymaker
-from . import cosmosgalaxymaker
+from .medsmaker import DiskMEDSMaker
+from .cosmosgalaxymaker import COSMOSGalaxyMaker
+from .galaxymaker import ConstShearPairedExpGalaxyMaker 
+
 
