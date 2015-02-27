@@ -342,8 +342,9 @@ class DiskMEDSMaker(object):
     mm.fpack(options=options)
     """
 
-    def __init__(self,fname,object_data,image_info=None,metadata=None,nmax=None):
+    def __init__(self,fname,object_data,image_info=None,metadata=None,nmax=None,verbose=False):
         self.fname = fname
+        self.verbose = verbose
         if nmax is None:
             self.nmax = -1
         else:
@@ -367,6 +368,8 @@ class DiskMEDSMaker(object):
         self.add_time = 0.0
         self.write_time = 0.0
         self.buff_write_time = 0.0
+        self.toarray_time = 0.0
+        self.num_writes = 0
         
     def fpack(self,options='-t 10240,1'):
         """
@@ -451,15 +454,15 @@ class DiskMEDSMaker(object):
                 self._add_to_buffer(imgpix,wgtpix,segpix,start_row_use,buffer_size)
             else:
                 # just write to disk right away
-                self.buff_write_time -= time.time()
                 cnt = len(imgpix)
+                self.toarray_time -= time.time()
                 pixlist = [np.fromiter(imgpix,dtype='f4',count=cnt), \
                            np.fromiter(wgtpix,dtype='f4',count=cnt), \
                            np.fromiter(segpix,dtype='i2',count=cnt)]
+                self.toarray_time += time.time()
                 extlist =  ['image_cutouts', \
                             'weight_cutouts', \
                             'seg_cutouts']                
-                self.buff_write_time += time.time()
                 self._write_pixels(start_row_use,pixlist,extlist)
 
     def _add_to_buffer(self,imgpix,wgtpix,segpix,start_row,buffer_size):
@@ -520,27 +523,39 @@ class DiskMEDSMaker(object):
         self.add_time += time.time()
             
     def _write_buffer(self):
+        """
+        write the buffers to disk
+        """
 
-        self.buff_write_time -= time.time()
-        
-        # write to disk
-        extlist = ['image_cutouts','weight_cutouts','seg_cutouts']
-        for start_row in self.img_buffer:
-            cnt = len(self.img_buffer[start_row])
-            pixlist = [np.fromiter(self.img_buffer[start_row],dtype='f4',count=cnt), \
-                       np.fromiter(self.wgt_buffer[start_row],dtype='f4',count=cnt), \
-                       np.fromiter(self.seg_buffer[start_row],dtype='i2',count=cnt)]
-            self.buff_write_time += time.time()
-            self._write_pixels(start_row,pixlist,extlist)
-            self.buff_write_time -= time.time()
-            
-        # reset
-        self.img_buffer = {}
-        self.wgt_buffer = {}
-        self.seg_buffer = {}
-        self.num_in_buffer = 0
+        if self.num_in_buffer > 0:
+            extlist = ['image_cutouts','weight_cutouts','seg_cutouts']
+            types = ['f4','f4','i2']
+            start_rows = sorted(self.img_buffer.keys())
+            with fitsio.FITS(self.fname,'rw') as f:
+                for extname,buff,tp in zip(extlist, \
+                                           [self.img_buffer, \
+                                            self.wgt_buffer, \
+                                            self.seg_buffer],types):
+                    for start_row in start_rows:
+                        cnt = len(buff[start_row])                    
+                        if self.num_in_buffer > 1e6 and self.verbose:
+                            if tp == 'f4':
+                                print "    buffer size: %0.2lf MB" % (cnt*4.0/1024.0**2.0)
+                            else:
+                                print "    buffer size: %0.2lf MB" % (cnt*2.0/1024.0**2.0)
+                        self.toarray_time -= time.time()
+                        pixels = np.fromiter(buff[start_row],dtype=tp,count=cnt)
+                        self.toarray_time += time.time()
+                        self.buff_write_time -= time.time()
+                        self.num_writes += 1
+                        f[extname].write(pixels, start=[start_row])
+                        self.buff_write_time += time.time()
 
-        self.buff_write_time += time.time()
+            # reset
+            self.img_buffer = {}
+            self.wgt_buffer = {}
+            self.seg_buffer = {}
+            self.num_in_buffer = 0
         
     def flush_buffer(self):
         """
@@ -562,6 +577,7 @@ class DiskMEDSMaker(object):
         
         with fitsio.FITS(self.fname,'rw') as f:
             for pixels,extname in zip(pixlist,extlist):
+                self.num_writes += 1
                 f[extname].write(pixels, start=[start_row])
 
         self.write_time += time.time()
@@ -570,8 +586,11 @@ class DiskMEDSMaker(object):
         """
         create file on disk and fill with table data
         """
+
+        if os.path.exists(self.fname):
+            os.remove(self.fname)
         
-        with fitsio.FITS(self.fname,'rw',clobber=True) as f:
+        with fitsio.FITS(self.fname,'rw') as f:
             # first do tables
             f.write(self.object_data,extname='object_data')
             
@@ -685,7 +704,7 @@ class DiskMEDSMaker(object):
         return new_data
 
     
-def _disk_test():
+def _disk_test(buff=25000000):
     """
     Test suite for DiskMEDSMaker
     """
@@ -801,11 +820,11 @@ def _disk_test():
     object_data['number'] = nums
 
     import time
-    for bf in [100000000/4,0,1,1000]:
+    for bf in [buff,0]:
         print 'testing buffering:',bf
-        for i in xrange(1):
+        for i in [0,2]:
             t0 = time.time()
-            mm = DiskMEDSMaker(fname,object_data)
+            mm = DiskMEDSMaker(fname,object_data,verbose=True)
             ood = mm.get_object_data()
             if i == 0:
                 # write in order to test buffering
@@ -855,8 +874,9 @@ def _disk_test():
             print "    add time:",mm.add_time
             print "    buff write time:",mm.buff_write_time
             print "    write time:",mm.write_time
-    
-
+            print "    to array time:",mm.toarray_time
+            print "    # of writes:",mm.num_writes
+            
             t0 = time.time()
             with meds.MEDS('medstest.fit') as m:
                 for ind in xrange(Nobj):
@@ -974,6 +994,11 @@ def _disk_test():
 
     print 'DiskMEDSMaker passed all tests!'
 
-def test():
-    _disk_test()
+def test(buff=25000000):
+    """
+    test suite for MEDS makers
+    
+    buff: size of buffer to test for DiskMEDSMaker
+    """
+    _disk_test(buff=buff)
     _mem_test()
