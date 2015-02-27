@@ -824,7 +824,7 @@ def _disk_test(buff=25000000):
         print 'testing buffering:',bf
         for i in [0,2]:
             t0 = time.time()
-            mm = DiskMEDSMaker(fname,object_data,verbose=True)
+            mm = DiskMEDSMaker(fname,object_data,verbose=False)
             ood = mm.get_object_data()
             if i == 0:
                 # write in order to test buffering
@@ -878,7 +878,7 @@ def _disk_test(buff=25000000):
             print "    # of writes:",mm.num_writes
             
             t0 = time.time()
-            with meds.MEDS('medstest.fit') as m:
+            with meds.MEDS(fname) as m:
                 for ind in xrange(Nobj):
                     assert comp_odata_medsind(odict[object_data['id'][ind]], \
                                               object_data['ncutout'][ind], \
