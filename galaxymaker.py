@@ -12,6 +12,10 @@ class GalaxyMaker(object):
         raise NotImplementedError
 
 class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
+    """
+    Makes sersic index 1 galaxies with a constant shear and 
+    paired for a ring test.    
+    """
     def __init__(self,g1,g2,seed,**kw):
         #do config
         self.conf = {}
