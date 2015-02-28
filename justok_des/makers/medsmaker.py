@@ -12,7 +12,7 @@ class MemoryMEDSMaker(object):
     Example:
     
         extra_data = [('cosmos_id','i8')]
-        extra_percutout_data = [('id_psf','i4')]
+        extra_percutout_data = [('id_psf','i8')]
         mm = MemoryMEDSMaker(extra_data=extra_data,extra_percutout_data=extra_percutout_data)
         objinfo = dict(id=id,number=number,file_id=file_id,orig_row=orig_row,orig_col=orig_col,
                        orig_start_row=orig_start_row,orig_start_col=orig_start_col,
@@ -88,16 +88,16 @@ class MemoryMEDSMaker(object):
     def _get_object_data_dtype(self,nmax):
         if nmax <= 1:
             nmax = 2
-        dlist = [('number', 'i4'),
-                 ('ncutout', 'i4'),
-                 ('id', 'i4'),
-                 ('box_size', 'i4'),
-                 ('file_id', 'i4', (nmax,)),
-                 ('start_row', 'i4', (nmax,)),
+        dlist = [('number', 'i8'),
+                 ('ncutout', 'i8'),
+                 ('id', 'i8'),
+                 ('box_size', 'i8'),
+                 ('file_id', 'i8', (nmax,)),
+                 ('start_row', 'i8', (nmax,)),
                  ('orig_row', 'f8', (nmax,)),
                  ('orig_col', 'f8', (nmax,)),
-                 ('orig_start_row', 'i4', (nmax,)),
-                 ('orig_start_col', 'i4', (nmax,)),
+                 ('orig_start_row', 'i8', (nmax,)),
+                 ('orig_start_col', 'i8', (nmax,)),
                  ('dudrow', 'f8', (nmax,)),
                  ('dudcol', 'f8', (nmax,)),
                  ('dvdrow', 'f8', (nmax,)),
@@ -216,9 +216,9 @@ def _mem_test():
 
         for tag in ['id_psf','file_id','orig_start_row','orig_start_col']:
             if not blank:
-                oi[tag] = rng.uniform(low=0,high=1e6,size=ncutout).astype('i4')
+                oi[tag] = rng.uniform(low=0,high=1e6,size=ncutout).astype('i8')
             else:
-                oi[tag] = np.zeros(ncutout,dtype='i4')
+                oi[tag] = np.zeros(ncutout,dtype='i8')
 
         for tag in ['orig_row','orig_col',
                     'dudrow','dudcol','dvdrow','dvdcol',
@@ -267,7 +267,7 @@ def _mem_test():
     obslist.append((make_test_obs(rng,11,(13,13)),11,(13,13)))
 
     extra_data = [('cosmos_id','i8')]
-    extra_percutout_data = [('id_psf','i4')]
+    extra_percutout_data = [('id_psf','i8')]
 
     import meds
     
@@ -642,16 +642,16 @@ class DiskMEDSMaker(object):
         
         # now can make dtype
         nmax = self.nmax
-        dlist = [('number', 'i4'),
-                 ('ncutout', 'i4'),
-                 ('id', 'i4'),
-                 ('box_size', 'i4'),
-                 ('file_id', 'i4', (nmax,)),
-                 ('start_row', 'i4', (nmax,)),
+        dlist = [('number', 'i8'),
+                 ('ncutout', 'i8'),
+                 ('id', 'i8'),
+                 ('box_size', 'i8'),
+                 ('file_id', 'i8', (nmax,)),
+                 ('start_row', 'i8', (nmax,)),
                  ('orig_row', 'f8', (nmax,)),
                  ('orig_col', 'f8', (nmax,)),
-                 ('orig_start_row', 'i4', (nmax,)),
-                 ('orig_start_col', 'i4', (nmax,)),
+                 ('orig_start_row', 'i8', (nmax,)),
+                 ('orig_start_col', 'i8', (nmax,)),
                  ('dudrow', 'f8', (nmax,)),
                  ('dudcol', 'f8', (nmax,)),
                  ('dvdrow', 'f8', (nmax,)),
@@ -711,18 +711,18 @@ def _disk_test(buff=25000000):
     
     #function for test obs
     def make_test_obs(rng,ncutout,shape,nmax,blank=False,mindata=False):
-        dlist = [('box_size','i4'),('ncutout','i4')]
+        dlist = [('box_size','i8'),('ncutout','i8')]
         if not mindata:
             dlist.extend([('cosmos_id','i8'),
                           ('id_psf','i8',(nmax,)),
-                          ('number', 'i4'),
-                          ('id', 'i4'),
-                          ('file_id', 'i4', (nmax,)),
-                          ('start_row', 'i4', (nmax,)),
+                          ('number', 'i8'),
+                          ('id', 'i8'),
+                          ('file_id', 'i8', (nmax,)),
+                          ('start_row', 'i8', (nmax,)),
                           ('orig_row', 'f8', (nmax,)),
                           ('orig_col', 'f8', (nmax,)),
-                          ('orig_start_row', 'i4', (nmax,)),
-                          ('orig_start_col', 'i4', (nmax,)),
+                          ('orig_start_row', 'i8', (nmax,)),
+                          ('orig_start_col', 'i8', (nmax,)),
                           ('dudrow', 'f8', (nmax,)),
                           ('dudcol', 'f8', (nmax,)),
                           ('dvdrow', 'f8', (nmax,)),
@@ -750,7 +750,7 @@ def _disk_test(buff=25000000):
                     if not blank:
                         oi[tag][0,0:ncutout] = rng.randint(low=0,high=1e6,size=ncutout)
                     else:
-                        oi[tag][0,0:ncutout] = np.zeros(ncutout,dtype='i4')
+                        oi[tag][0,0:ncutout] = np.zeros(ncutout,dtype='i8')
 
                 for tag in ['orig_row','orig_col',
                             'dudrow','dudcol','dvdrow','dvdcol',
@@ -969,7 +969,7 @@ def _disk_test(buff=25000000):
     assert ok,"DiskMEDSMaker did not catch wrong nmax!"
 
     # make odata without proper fields
-    for dhave in [('box_size','i4'),('ncutout','i4')]:
+    for dhave in [('box_size','i8'),('ncutout','i8')]:
         oi = np.zeros(1,dtype=[dhave])
         ok = False
         try:
@@ -981,8 +981,8 @@ def _disk_test(buff=25000000):
         assert ok,"DiskMEDSMaker did not catch missing required field %s!" % dhave[0]
 
     # make fields with wrong dtype
-    for dhave in [('orig_row','i4'),('number','f8'),('dudrow','f8',(3,))]:
-        oi = np.zeros(1,dtype=[dhave,('file_id','i4',(5,)),('box_size','i4'),('ncutout','i4'),('dudcol','f8',(5,))])
+    for dhave in [('orig_row','i8'),('number','f8'),('dudrow','f8',(3,))]:
+        oi = np.zeros(1,dtype=[dhave,('file_id','i8',(5,)),('box_size','i8'),('ncutout','i8'),('dudcol','f8',(5,))])
         ok = False
         try:
             mm = DiskMEDSMaker(fname,oi)
