@@ -1,2 +1,2 @@
-# justok-des
-code to make MEDS test files for DES
+# lensing_sims_tools
+code to make lensing sims for testing

@@ -2,10 +2,10 @@ import os
 import glob
 from distutils.core import setup
 
-setup(name="justok_des",
+setup(name="lensing_sims_tools",
             version="0.1",
-            description="code to make DES-like GREAT3-like sims",
+            description="code to make lensing sims",
             license = "3-clause BSD",
             author="Matthew R. Becker w/ code from GREAT3 team",
             author_email="becker.mr@gmail.com",
-            packages=['justok_des','justok_des.makers','justok_des.makers.great3_cosmos_gals'])
+            packages=['lensing_sims_tools','lensing_sims_tools.makers','lensing_sims_tools.makers.great3_cosmos_gals'])
