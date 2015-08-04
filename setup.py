@@ -8,4 +8,4 @@ setup(name="lensing_sims_tools",
             license = "3-clause BSD",
             author="Matthew R. Becker w/ code from GREAT3 team",
             author_email="becker.mr@gmail.com",
-            packages=['lensing_sims_tools','lensing_sims_tools.makers','lensing_sims_tools.makers.great3_cosmos_gals'])
+            packages=['lensing_sims_tools','lensing_sims_tools.makers','lensing_sims_tools.blendmakers','lensing_sims_tools.makers.great3_cosmos_gals'])
