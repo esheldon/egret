@@ -1,5 +1,6 @@
 import numpy as np
 import galsim
+import ngmix
 
 class GalaxyMaker(object):
     def __init__(self):
@@ -59,6 +60,8 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
         return image, wt
                                                                                                         
     def get_galaxy_pair(self,psf,pixel,nx=None,ny=None,g1s=None,g2s=None):
+        pixel_scale = pixel.getScale()
+
         if g1s is None and g2s is None:
             g1s,g2s = self._draw_gaussian_shape()
         else:
@@ -69,13 +72,30 @@ class ConstShearPairedExpGalaxyMaker(GalaxyMaker):
             nx,ny = im1.shape
         im2,wt2 = self._draw_galaxy(-g1s,-g2s,psf,pixel,nx=ny,ny=ny)
 
-        #return extra info
+        j = ngmix.Jacobian(im1.shape[0]/2.0,im1.shape[2]/2.0,pixel_scale,0.0,0.0,pixel_scale)
+        if nx is not None and ny is not None:
+            psf_im = psf.draw(scale=pixel_scale,nx=nx,ny=ny)
+        else:
+            psf_im = psf.draw(scale=pixel_scale)
+        psf_obs = ngmix.Observation(image=psf_im,jacobian=j)
+        
         meta = {}
         meta['g1s'] = g1s
         meta['g2s'] = g2s
         meta['g1'] = self.g1
-        meta['g2'] = self.g2
-        meta.update(self.conf)
+        meta['g2'] = self.g2        
+        obs1 = ngmix.Observation(image=im1,weight=wt1,jacobian=j,psf=psf_obs)
+        obs1.update_meta_data(meta)
+        obs1.update_meta_data(self.conf)
+
+        meta = {}
+        meta['g1s'] = -g1s
+        meta['g2s'] = -g2s
+        meta['g1'] = self.g1
+        meta['g2'] = self.g2        
+        obs1 = ngmix.Observation(image=im2,weight=wt2,jacobian=j,psf=psf_obs)
+        obs1.update_meta_data(meta)
+        obs1.update_meta_data(self.conf)
         
-        return im1,wt1,im2,wt2,meta
+        return obs1,obs2
 

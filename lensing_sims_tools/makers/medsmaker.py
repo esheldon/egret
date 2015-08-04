@@ -22,6 +22,27 @@ class MemoryMEDSMaker(object):
         mm.add_object(objinfo,[im1,im2,im3],[wgt1,wgt2,wgt3],[seg1,seg2,seg3])
         mm.write('medstest.fit')    
         mm.fpack(options=options) #pack the file with fpack
+
+    The columns are (from the meds docs - https://github.com/esheldon/meds) 
+    
+    id                 i8       id from coadd catalog
+    ncutout            i8       number of cutouts for this object
+    box_size           i8       box size for each cutout
+    file_id            i8[NMAX] zero-offset id into the file names in the 
+    second extension
+    start_row          i8[NMAX] zero-offset, points to start of each cutout.
+    orig_row           f8[NMAX] zero-offset position in original image
+    orig_col           f8[NMAX] zero-offset position in original image
+    orig_start_row     i8[NMAX] zero-offset start corner in original image
+    orig_start_col     i8[NMAX] zero-offset start corner in original image
+    cutout_row         f8[NMAX] zero-offset position in cutout imag
+    cutout_col         f8[NMAX] zero-offset position in cutout image
+    dudrow             f8[NMAX] jacobian of transformation 
+    row,col->ra,dec tangent plane (u,v)
+    dudcol             f8[NMAX]
+    dvdrow             f8[NMAX]
+    dvdcol             f8[NMAX]
+
     """
     
     def __init__(self,extra_data=None,extra_percutout_data=None):
@@ -155,6 +176,10 @@ class MemoryMEDSMaker(object):
 
         assert fname is not None, \
             "The file name was not given and the internal file name is not defined for fpack!"
+
+        if os.path.exists(fname+'.fz'):
+            os.remove(fname+'.fz')
+            
         os.system('fpack %s %s' % (options,fname))        
         
     def write(self,name,image_info=None,metadata=None,clobber=True,compress=None):
@@ -303,6 +328,25 @@ class DiskMEDSMaker(object):
     # you probably want to set an ID
     object_data = ...
     
+    The columns are (from the meds docs - https://github.com/esheldon/meds) 
+    
+    id                 i8       id from coadd catalog
+    ncutout            i8       number of cutouts for this object
+    box_size           i8       box size for each cutout
+    file_id            i8[NMAX] zero-offset id into the file names in the 
+    second extension
+    start_row          i8[NMAX] zero-offset, points to start of each cutout.
+    orig_row           f8[NMAX] zero-offset position in original image
+    orig_col           f8[NMAX] zero-offset position in original image
+    orig_start_row     i8[NMAX] zero-offset start corner in original image
+    orig_start_col     i8[NMAX] zero-offset start corner in original image
+    cutout_row         f8[NMAX] zero-offset position in cutout imag
+    cutout_col         f8[NMAX] zero-offset position in cutout image
+    dudrow             f8[NMAX] jacobian of transformation row,col->ra,dec tangent plane (u,v)
+    dudcol             f8[NMAX]
+    dvdrow             f8[NMAX]
+    dvdcol             f8[NMAX]    
+    
     # specify file name and optionally image_info and metadata tables
     fname = 'blah'    
     ii = ...
@@ -340,8 +384,10 @@ class DiskMEDSMaker(object):
     # this is slow, so it is best to just wait until the end.
     options = list of options for fpack
     mm.fpack(options=options)
-    """
 
+
+    """
+    
     def __init__(self,fname,object_data,image_info=None,metadata=None,nmax=None,verbose=False):
         self.fname = fname
         self.verbose = verbose
