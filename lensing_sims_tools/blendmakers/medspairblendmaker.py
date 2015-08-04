@@ -213,8 +213,8 @@ class BlendedPairMEDSMaker(object):
             fofs.append((i,i*2+2))
             nbrs.append((i*2+1,i*2+2))
             nbrs.append((i*2+2,i*2+1))
-        self.fofs = np.array(fofs,dtype=[('fof_id','i8'),('number','i4')])
-        self.nbrs = np.array(nbrs,dtype=[('number','i4'),('nbrs_number','i4')])
+        self.fofs = np.array(fofs,dtype=[('fofid','i8'),('number','i4')])
+        self.nbrs = np.array(nbrs,dtype=[('number','i4'),('nbr_number','i4')])
 
     def make_psfs(self):
         ms = -np.inf
