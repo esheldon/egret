@@ -33,6 +33,13 @@ class BlendedPairMEDSMaker(object):
         self.Nobj = Np*2
         self.noise_obj = kwargs['noise_obj']
 
+        if 'minoff' not in kwargs:
+            kwargs['minoff'] = 4
+        if 'maxoff' not in kwargs:
+            kwargs['maxoff'] = 4            
+        self.minoff = kwargs['minoff']
+        self.maxoff = kwargs['maxoff']
+        
     def make_data(self):
         self.make_psfs()
         self.make_gals()
@@ -64,8 +71,8 @@ class BlendedPairMEDSMaker(object):
             g1 = self.gals[i*2]
             g2 = self.gals[i*2+1]
 
-            maxoff = 8
-            minoff = 6
+            maxoff = self.maxoff
+            minoff = self.minoff
             off_x = self.rs.choice(maxoff,size=1,replace=True)[0]
             off_y = self.rs.choice(maxoff,size=1,replace=True)[0]
             if off_x < minoff:
