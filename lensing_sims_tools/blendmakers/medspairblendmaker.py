@@ -39,6 +39,8 @@ class BlendedPairMEDSMaker(object):
             kwargs['maxoff'] = 4            
         self.minoff = kwargs['minoff']
         self.maxoff = kwargs['maxoff']
+
+        self.tail = 'data'
         
     def make_data(self):
         self.make_psfs()
@@ -46,19 +48,19 @@ class BlendedPairMEDSMaker(object):
         self.make_nbrs_fofs()
         self.do_blends()
 
-    def write_data(self,tail='data'):
-        fitsio.write('psf_%s.fits'%tail,self.psf_data,clobber=True)
-        fitsio.write('obj_%s.fits'%tail,self.obj_data,clobber=True)
-        fitsio.write('nbrs_%s.fits'%tail,self.nbrs,clobber=True)
-        fitsio.write('fof_%s.fits'%tail,self.fofs,clobber=True)
+    def write_data(self):
+        fitsio.write('psf_%s.fits'%self.tail,self.psf_data,clobber=True)
+        fitsio.write('obj_%s.fits'%self.tail,self.obj_data,clobber=True)
+        fitsio.write('nbrs_%s.fits'%self.tail,self.nbrs,clobber=True)
+        fitsio.write('fof_%s.fits'%self.tail,self.fofs,clobber=True)
 
-        self.mm.write('meds_%s.fits' % tail)
+        self.mm.write('meds_%s.fits' % self.tail)
         self.mm.fpack()
-        os.remove('meds_%s.fits' % tail)
+        os.remove('meds_%s.fits' % self.tail)
 
-        self.bmm.write('blended_meds_%s.fits' % tail)
+        self.bmm.write('blended_meds_%s.fits' % self.tail)
         self.bmm.fpack()
-        os.remove('blended_meds_%s.fits' % tail)
+        os.remove('blended_meds_%s.fits' % self.tail)
         
     def do_blends(self):
         # do blends
@@ -118,6 +120,14 @@ class BlendedPairMEDSMaker(object):
 
             nse = self.rs.normal(size=imtot.shape)*self.noise_obj
             imtot += nse
+
+            cens = [[xl1+g1.image.shape[0]/2.0,yl1+g1.image.shape[1]/2.0],
+                    [xl2+g2.image.shape[0]/2.0,yl2+g2.image.shape[1]/2.0]]
+            nums = [i*2+1,i*2+2]
+            seg = get_seg(imtot,self.noise_obj,10.0,cens,nums)
+
+            fitsio.write('images%d_%s.fits' % (i,self.tail),imtot,clobber=True)
+            fitsio.write('images%d_%s.fits' % (i,self.tail),seg)
             
             bobjinfo1 = dict(id=i*2,number=i*2+1,
                              orig_row=xl1+g1.image.shape[0]/2.0,
@@ -132,8 +142,8 @@ class BlendedPairMEDSMaker(object):
                              cutout_col=g1.image.shape[1]/2.0,
                              ind_psf=g1.meta['ind_psf'])
             self.bmm.add_object(bobjinfo1,[imtot[xl1:xl1+g1.image.shape[0],yl1:yl1+g1.image.shape[1]]],
-                           [g1.image*0.0 + 1.0/noise_obj/noise_obj],
-                           [np.zeros(g1.image.shape,dtype='i4')+i*2+1])
+                                [g1.image*0.0 + 1.0/noise_obj/noise_obj],
+                                [seg[xl1:xl1+g1.image.shape[0],yl1:yl1+g1.image.shape[1]]])
 
             objinfo1 = dict(id=i*2,number=i*2+1,
                             orig_row=g1.image.shape[0]/2.0,
@@ -164,8 +174,8 @@ class BlendedPairMEDSMaker(object):
                              cutout_col=g2.image.shape[1]/2.0,
                              ind_psf=g2.meta['ind_psf'])
             self.bmm.add_object(bobjinfo2,[imtot[xl2:xl2+g2.image.shape[0],yl2:yl2+g2.image.shape[1]]],
-                           [g2.image*0.0 + 1.0/noise_obj/noise_obj],
-                           [np.zeros(g2.image.shape,dtype='i4')+i*2+1+1])
+                                [g2.image*0.0 + 1.0/noise_obj/noise_obj],
+                                [seg[xl2:xl2+g2.image.shape[0],yl2:yl2+g2.image.shape[1]]])
             
             objinfo2 = dict(id=i*2+1,number=i*2+1+1,
                             orig_row=g2.image.shape[0]/2.0,
@@ -230,7 +240,25 @@ class BlendedPairMEDSMaker(object):
         self.psf_data = psf_data
 
 
-        
-        
+def get_seg(im,sigma,nsigma,cens,nums):
+    """
+    stupid simple code to make a pseudo-seg map
+    """
 
+    xc = []
+    yc = []
+    for ceni in cens:
+        xc.append(ceni[0])
+        yc.append(ceni[1])
+    xc = np.array(xc)
+    yc = np.array(yc)
+
+    seg = np.zeros_like(im,dtype='i4')
     
+    qx,qy = np.where(im > sigma*nsigma)    
+    for i,j in zip(qx,qy):
+        d2 = (i*1.0-xc)**2 + (j*1.0-yc)**2.0
+        q = np.argmin(d2)
+        seg[i,j] = nums[q]
+
+    return seg
