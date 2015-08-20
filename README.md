@@ -1,2 +1,2 @@
-# lensing_sims_tools
+# egret
 code to make lensing sims for testing
