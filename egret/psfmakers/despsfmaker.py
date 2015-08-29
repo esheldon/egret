@@ -61,7 +61,7 @@ class DESPSFMaker(PSFMaker):
                       + min_atmos_psf_e
         atmos_psf_beta = self.rng.uniform()*180.0    
         atmos_psf = galsim.Gaussian(sigma=atmos_psf_fwhm)
-        atmos_psf.applyShear(e=atmos_psf_e,beta=atmos_psf_beta*galsim.degrees)
+        atmos_psf = atmos_psf.shear(e=atmos_psf_e,beta=atmos_psf_beta*galsim.degrees)
         return atmos_psf
     
     def make_psf(self,image_size=None,pixel_scale=None,atmos_psf_fwhm=None,full_output=False):

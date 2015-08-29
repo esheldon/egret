@@ -54,7 +54,8 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     cgm.apply_psf_and_noise_whiten(...)
     
     """
-    def __init__(self,seed,cosmos_data=None,real_galaxy=True,preload=False,**kw):
+    def __init__(self,seed=None,cosmos_data=None,real_galaxy=True,preload=False,**kw):
+        assert seed is not None,"Random seed must be given in cosmos galaxy maker!"
         if cosmos_data is None:
             cosmos_data = os.environ['GREAT3DATA']
 
@@ -62,9 +63,8 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         self.rng = galsim.UniformDeviate(seed)
         self.rng_np = np.random.RandomState(int(self.rng() * 1000000))
         self.cosmos_data = cosmos_data
-        self.preload = preload
-        self.cosmosgb = COSMOSGalaxyBuilder(real_galaxy,cosmos_data,preload=preload)
         self.real_galaxy = real_galaxy
+        self.cosmosgb = COSMOSGalaxyBuilder(real_galaxy,cosmos_data,preload=preload)
         self.catalog_dtype = self.cosmosgb.generateSubfieldParameters()['schema']
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
@@ -191,7 +191,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         if offx > 0:
             offx = offx//2
             sub_xmin = xmin+offx
-            sub_xmax = xmin+offx+final_size
+            sub_xmax = xmin+offx+final_size - 1
         else:
             sub_xmin = xmin
             sub_xmax = xmax
@@ -200,7 +200,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         if offy > 0:            
             offy = offy//2
             sub_ymin = ymin+offy
-            sub_ymax = ymin+offy+final_size
+            sub_ymax = ymin+offy+final_size - 1
         else:
             sub_ymin = ymin
             sub_ymax = ymax
@@ -218,12 +218,13 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         
             galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
             final = galsim.Convolve([psf, pixel, galaxy])        
-            galim = final.draw(scale=pixel_scale)
+            galim = final.drawImage(scale=pixel_scale,method='no_pixel')
         
         Doing the stuff above first matches how the GREAT3 sims were done.
         """
         if hasattr(final_galaxy,'noise'):
-            current_var = final_galaxy.noise.applyWhiteningTo(galim)
+            #current_var = final_galaxy.noise.applyWhiteningTo(galim)
+            current_var = final_galaxy.noise.whitenImage(galim)
         else:
             current_var = 0.0
         
@@ -242,9 +243,13 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
         """
 
+        # great3 did it like this
+        # final_galaxy = galsim.Convolve([psf, pixel, galaxy])
+        # galim = final_galaxy.draw(scale=pixel.getScale())
+        # using newer galsim APIs
         final_galaxy = galsim.Convolve([psf, pixel, galaxy])
-        galim = final_galaxy.draw(scale=pixel.getScale())
-
+        galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')
+        
         return self.finish_galaxy_image_ala_great3(galim,final_galaxy,galinfo,max_size)
     
     def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size):
@@ -260,11 +265,16 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             noise.applyTo(final_galim)        
         """
 
+        # great3 did it like this
+        # final_galaxy = galsim.Convolve([psf, pixel, galaxy])
+        # galim = final_galaxy.draw(scale=pixel.getScale())
+        # using newer galsim APIs
         final_galaxy = galsim.Convolve([psf, pixel, galaxy])
-        galim = final_galaxy.draw(scale=pixel.getScale())
-
+        galim = final_galaxy.drawImage(scale=pixel_scale,method='no_pixel')
+        
         if hasattr(final_galaxy,'noise'):
-            current_var = final_galaxy.noise.applyWhiteningTo(galim)
+            #current_var = final_galaxy.noise.applyWhiteningTo(galim)
+            current_var = final_galaxy.noise.whitenImage(galim)
         else:
             current_var = 0.0
 

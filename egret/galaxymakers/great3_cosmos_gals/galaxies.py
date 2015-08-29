@@ -981,11 +981,21 @@ class COSMOSGalaxyBuilder(GalaxyBuilder):
         
         gal = galsim.RealGalaxy(self.rgc, rng=rng, id=record['cosmos_ident'],
                                 noise_pad_size=noise_pad_size)
-        
+
+        # START OF HACK
+        # dilate and rotate changed to newer galsim API
+        """
         # Rescale its size.
         gal.applyDilation(record['size_rescale'])
         # Rotate.
         gal.applyRotation(record['rot_angle_radians']*galsim.radians)
+        """
+        # Rescale its size.
+        gal = gal.dilate(record['size_rescale'])
+        # Rotate.
+        gal = gal.rotate(record['rot_angle_radians']*galsim.radians)
+        # END OF HACK
+        
         # Rescale its flux.
         gal *= record['flux_rescale']
         return gal
