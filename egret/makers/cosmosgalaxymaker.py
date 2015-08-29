@@ -1,5 +1,6 @@
 import numpy as np
 import galsim
+import os
 
 from .galaxymaker import GalaxyMaker
 from .great3_cosmos_gals.galaxies import COSMOSGalaxyBuilder
@@ -27,22 +28,36 @@ class COSMOSGalaxyMaker(GalaxyMaker):
     seed = 12345
     cgm = COSMOSGalaxyMaker(seed,cosmos_dir)
     
-    #build a catalog
+    # build a catalog
     cgm.build_catalog_for_seeing(seeing)
     
     # now draw from it
     for i in xrange(10):
-        galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
+        galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_size,pixel_scale)
     
     # you can also just draw galaxies at random, but then the catalog is rebuilt each time
-    # which is slow.
-    galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale)
+    #  which is slow.
+    galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_size,pixel_scale)
     
-    #if you specify save_catalog=True, then you can skip the building step (the code
-    # will do it internally).
-    galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_xsize,max_ysize,pixel_scale,save_catalog=True)    
+    # if you specify save_catalog=True, then you can skip the building step (the code
+    #  will do it internally).
+    galaxy,galinfo = cgm.get_galaxy(seeing,n_epochs,max_size,pixel_scale,save_catalog=True)    
+    
+    # the above gets you a galaxy with no PSF
+    # one should then add in PSF and pixel effects and noise if wanted
+    # try these methods
+    
+    # great3 clone
+    cgm.apply_psf_and_noise_whiten_ala_great3(...)
+    
+    # like great3, but no extra noise added
+    cgm.apply_psf_and_noise_whiten(...)
+    
     """
-    def __init__(self,seed,cosmos_data,real_galaxy=True,preload=False,**kw):
+    def __init__(self,seed,cosmos_data=None,real_galaxy=True,preload=False,**kw):
+        if cosmos_data is None:
+            cosmos_data = os.environ['GREAT3DATA']
+
         self.noise_mult = 1.0
         self.rng = galsim.UniformDeviate(seed)
         self.rng_np = np.random.RandomState(int(self.rng() * 1000000))
@@ -54,7 +69,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
 
-    def get_galaxy_from_info(self,record_in,seeing,n_epochs,max_xsize,max_ysize,pixel_scale):
+    def get_galaxy_from_info(self,record_in,seeing,n_epochs,max_size,pixel_scale):
         """
         Get a COSMOS galaxy from a specific row in table.
         """
@@ -67,7 +82,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
                     record[tag] *= rat
         nb = PlaceholderNoiseBuilder()
         nb_params = nb.generateEpochParameters(self.rng,record['n_epochs'],seeing,self.noise_mult)
-        galaxy = self.cosmosgb.makeGalSimObject(record, max_xsize, max_ysize, pixel_scale, self.rng)
+        galaxy = self.cosmosgb.makeGalSimObject(record, max_size, max_size, pixel_scale, self.rng)
         galinfo = {}
         galinfo['noise_builder'] = nb
         galinfo['noise_builder_params'] = nb_params
@@ -102,7 +117,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
         return self.catalogs[seeing][0].copy()
         
-    def get_galaxy(self,seeing,n_epochs,max_xsize,max_ysize,pixel_scale,verbose=False, \
+    def get_galaxy(self,seeing,n_epochs,max_size,pixel_scale,verbose=False, \
                    randomly_rotate=True,save_catalog=False):
         """
         Get a galaxy from COSMOS postage stamp a la GREAT3.
@@ -139,7 +154,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             self.cosmosgb.generateCatalog(self.rng,[record],None,nb.typical_variance,self.noise_mult,seeing=seeing, \
                                           verbose=verbose,randomly_rotate=randomly_rotate)
         
-        galaxy = self.cosmosgb.makeGalSimObject(record, max_xsize, max_ysize, pixel_scale, self.rng)
+        galaxy = self.cosmosgb.makeGalSimObject(record, max_size, max_size, pixel_scale, self.rng)
         galinfo = {}
         galinfo['noise_builder'] = nb
         galinfo['noise_builder_params'] = nb_params
@@ -149,7 +164,51 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         
         return galaxy,galinfo
 
-    def finish_galaxy_image(self,galim,final_galaxy,galinfo):
+    def _get_sub_image(self,galim,max_size):
+        curr_bounds = galim.getBounds()
+        curr_xsize = curr_bounds.getXMax() - curr_bounds.getXMin()
+        curr_ysize = curr_bounds.getYMax() - curr_bounds.getYMin()
+
+        if curr_xsize > max_size or curr_ysize > max_size or curr_ysize != curr_xsize:
+            sub_bounds = self._get_sub_bounds(curr_bounds,max_size)
+            sub_galim = galim.subImage(sub_bounds)
+            return sub_galim
+        else:
+            return galim
+    
+    def _get_sub_bounds(self,curr_bounds,max_size):
+        xmin = curr_bounds.getXMin()
+        xmax = curr_bounds.getXMax()
+        curr_xsize = xmax - xmin + 1
+
+        ymin = curr_bounds.getYMin()
+        ymax = curr_bounds.getYMax()
+        curr_ysize = ymax - ymin + 1
+        
+        final_size = np.min((curr_xsize,curr_ysize,max_size))
+        
+        offx = curr_xsize - final_size
+        if offx > 0:
+            offx = offx//2
+            sub_xmin = xmin+offx
+            sub_xmax = xmin+offx+final_size
+        else:
+            sub_xmin = xmin
+            sub_xmax = xmax
+
+        offy = curr_ysize - final_size
+        if offy > 0:            
+            offy = offy//2
+            sub_ymin = ymin+offy
+            sub_ymax = ymin+offy+final_size
+        else:
+            sub_ymin = ymin
+            sub_ymax = ymax
+            
+        sub_bounds = galsim.BoundsI(sub_xmin,sub_xmax,sub_ymin,sub_ymax)
+        return sub_bounds
+
+    def finish_galaxy_image_ala_great3(self,galim,final_galaxy,galinfo,max_size):
         """
         This routine finishes the galaxies after they have been PSF convolved, etc.
         It adds the requested amount of noise in the galinfo dict to the image 
@@ -170,4 +229,50 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         
         galinfo['noise_builder'].addNoise(self.rng,galinfo['noise_builder_params'],galim,current_var)
 
-        return galim
+        final_galim = self._get_sub_image(galim,max_size)
+        
+        return final_galim, galinfo['noise_builder_params']['variance']
+
+    def apply_psf_and_noise_whiten_ala_great3(self,galaxy,psf,pixel,galinfo,max_size):
+        """
+        Automates finishing of galaxies for a psf and pixel a la great3
+        
+        Shear should be applied already if wanted like this, for example,
+        
+            galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
+        """
+
+        final_galaxy = galsim.Convolve([psf, pixel, galaxy])
+        galim = final_galaxy.draw(scale=pixel.getScale())
+
+        return self.finish_galaxy_image_ala_great3(galim,final_galaxy,galinfo,max_size)
+    
+    def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size):
+        """
+        Automates finishing of galaxies for a psf and pixel, but adds no extra noise.
+        
+        Shear should be applied already if wanted.
+        
+        Noise can then be added to the image via (for example)
+        
+            noise_to_add = np.sqrt(total_noise**2 - current_var)
+            noise = galsim.GaussianNoise(rng, sigma=noise_to_add)
+            noise.applyTo(final_galim)        
+        """
+
+        final_galaxy = galsim.Convolve([psf, pixel, galaxy])
+        galim = final_galaxy.draw(scale=pixel.getScale())
+
+        if hasattr(final_galaxy,'noise'):
+            current_var = final_galaxy.noise.applyWhiteningTo(galim)
+        else:
+            current_var = 0.0
+
+        final_galim = self._get_sub_image(galim,max_size)
+
+        return final_galim, current_var
+    
+        
+                 
+
+        
