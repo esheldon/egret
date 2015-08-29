@@ -2,7 +2,8 @@
 import os
 import sys
 import numpy as np
-from ..makers import ExpNGMixGalaxyMaker,MemoryMEDSMaker
+from ..galaxymakers import ExpNGMixGalaxyMaker
+from ..medsmakers import MemoryMEDSMaker
 import fitsio
 import matplotlib.pyplot as plt
 import copy
