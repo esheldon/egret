@@ -1,5 +1,5 @@
 #default imports
-from .cosmosgalaxymaker import COSMOSGalaxyMaker
+from .cosmosgalaxymaker import GREAT3COSMOSGalaxyMaker
 from .galaxymaker import ConstShearPairedExpGalaxyMaker 
 from .ngmixgalaxymakers import *
 

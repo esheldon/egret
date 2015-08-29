@@ -6,9 +6,9 @@ from .galaxymaker import GalaxyMaker
 from .great3_cosmos_gals.galaxies import COSMOSGalaxyBuilder
 from .great3_cosmos_gals.noise import PlaceholderNoiseBuilder
 
-class COSMOSGalaxyMaker(GalaxyMaker):
+class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
     """
-    Returns COSMOS galaxies as if viewed from the ground. 
+    Returns COSMOS galaxies as if viewed from the ground a la GREAT3
     
     See the GREAT3 challenge docs for details. Code was pulled from the 
     GREAT3 simulations code base.
@@ -161,6 +161,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         galinfo['info'] = record.copy()
         galinfo['seeing'] = seeing
         galinfo['noise'] = np.sqrt(galinfo['noise_builder_params']['variance'])
+        galinfo['orig_stamp_size_arcsec'] = galaxy.original.original_gal.image.array.shape[0]*0.03
         
         return galaxy,galinfo
 
@@ -234,7 +235,7 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         
         return final_galim, galinfo['noise_builder_params']['variance']
 
-    def apply_psf_and_noise_whiten_ala_great3(self,galaxy,psf,pixel,galinfo,max_size):
+    def apply_psf_and_noise_whiten_ala_great3(self,galaxy,psf,pixel,galinfo,max_size,min_size=32):
         """
         Automates finishing of galaxies for a psf and pixel a la great3
         
@@ -243,6 +244,13 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
         """
 
+        # cut to orig postage stamp in range
+        size = int(np.ceil(galinfo['orig_stamp_size_arcsec']/pixel.getScale()))
+        if size > max_size:
+            size = max_size
+        elif size < min_size:
+            size = min_size
+        
         # great3 did it like this
         # final_galaxy = galsim.Convolve([psf, pixel, galaxy])
         # galim = final_galaxy.draw(scale=pixel.getScale())
@@ -250,9 +258,9 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         final_galaxy = galsim.Convolve([psf, pixel, galaxy])
         galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')
         
-        return self.finish_galaxy_image_ala_great3(galim,final_galaxy,galinfo,max_size)
+        return self.finish_galaxy_image_ala_great3(galim,final_galaxy,galinfo,size)
     
-    def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size):
+    def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size,min_size=32):
         """
         Automates finishing of galaxies for a psf and pixel, but adds no extra noise.
         
@@ -265,12 +273,19 @@ class COSMOSGalaxyMaker(GalaxyMaker):
             noise.applyTo(final_galim)        
         """
 
+        # cut to orig postage stamp in range
+        size = int(np.ceil(galinfo['orig_stamp_size_arcsec']/pixel.getScale()))
+        if size > max_size:
+            size = max_size
+        elif size < min_size:
+            size = min_size
+                
         # great3 did it like this
         # final_galaxy = galsim.Convolve([psf, pixel, galaxy])
         # galim = final_galaxy.draw(scale=pixel.getScale())
         # using newer galsim APIs
         final_galaxy = galsim.Convolve([psf, pixel, galaxy])
-        galim = final_galaxy.drawImage(scale=pixel_scale,method='no_pixel')
+        galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')
         
         if hasattr(final_galaxy,'noise'):
             #current_var = final_galaxy.noise.applyWhiteningTo(galim)
@@ -278,11 +293,6 @@ class COSMOSGalaxyMaker(GalaxyMaker):
         else:
             current_var = 0.0
 
-        final_galim = self._get_sub_image(galim,max_size)
+        final_galim = self._get_sub_image(galim,size)
 
         return final_galim, current_var
-    
-        
-                 
-
-        
