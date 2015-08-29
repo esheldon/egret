@@ -104,10 +104,11 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         # typical_variance is for SE by definition, so just make a typical gal for the seeing and one epoch
         # will handle increased variance for multiple epochs below
         # also will rescale flux comps below
-        self.catalogs[seeing] = (self.cosmosgb.generateCatalog(self.rng,None,None,nb.typical_variance, \
-                                                               self.noise_mult,seeing=seeing,verbose=verbose, \
-                                                               randomly_rotate=randomly_rotate),
-                                 nb.typical_variance)
+        self.catalogs[seeing] = {'cat':self.cosmosgb.generateCatalog(self.rng,None,None,nb.typical_variance, \
+                                                                     self.noise_mult,seeing=seeing,verbose=verbose, \
+                                                                     randomly_rotate=randomly_rotate),
+                                 'typical_var':nb.typical_variance}
+        self.catalogs[seeing]['cat']['weight'] /= np.sum(self.catalogs[seeing]['cat']['weight'])
         
     def get_catalog_for_seeing(self,seeing,verbose=False,randomly_rotate=True):
         """
@@ -129,15 +130,18 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
                 self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
             
             #now get catalog
-            catalog = self.catalogs[seeing][0]
+            catalog = self.catalogs[seeing]['cat']
             Ncosmos = len(catalog)
             
             #now draw at random with weights
             # seed numpy.random to get predictable behavior
+            randind = self.rng_np.choice(Ncosmos,replace=True,p=catalog['weight'])
+            """
             while True:                
                 randind = self.rng_np.choice(Ncosmos,replace=True)
-                if self.rng_np.uniform() < self.catalogs[seeing][0]['weight'][randind]:
+                if self.rng_np.uniform() < catalog['weight'][randind]:
                     break            
+            """
             record = catalog[randind].copy()
             record['n_epochs'] = n_epochs
             for tag in ["bulge_flux","disk_flux","flux_rescale"]:
@@ -145,7 +149,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
                     record[tag] /= n_epochs
             nb = PlaceholderNoiseBuilder()
             nb_params = nb.generateEpochParameters(self.rng,record['n_epochs'],seeing,self.noise_mult)
-            assert nb.typical_variance == self.catalogs[seeing][-1]
+            assert nb.typical_variance == self.catalogs[seeing]['typical_var']
         else:
             record = np.zeros(1,dtype=self.catalog_dtype)[0]
             record['n_epochs'] = n_epochs
