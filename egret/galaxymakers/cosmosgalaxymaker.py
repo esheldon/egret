@@ -228,7 +228,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         elif orig_size < min_size:
             size = min_size
         else:
-            size = oig_size
+            size = orig_size
         return size
     
     def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size=None,min_size=None,sizes=None):
