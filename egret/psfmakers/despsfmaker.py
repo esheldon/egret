@@ -49,6 +49,7 @@ class DESPSFMaker(PSFMaker):
                                 obscuration=obscuration,
                                 pad_factor=pad_factor*5.0,
                                 suppress_warning=False,
+                                max_size=image_size_arcsec,
                                 **aber_dict)
         return psf
     
