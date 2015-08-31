@@ -228,19 +228,21 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         if max_size is None:
             max_size = np.inf
 
-        if sizes is not None:
-            sizes = np.array(sorted(sizes))
-            q, = np.where((sizes >= orig_size) & (sizes <= max_size) & (sizes >= min_size))
-            assert len(q) > 0,"No possible stamp size given!"
-            psizes = sizes[q]
-            q = np.argmin(np.abs(orig_size-psizes))
-            size = psizes[q]
-        elif orig_size > max_size:
-            size = max_size
+        if orig_size > max_size:
+            size = max_size            
         elif orig_size < min_size:
             size = min_size
         else:
             size = orig_size
+        
+        if sizes is not None and not ((min_size > np.max(sizes)) or (max_size < np.min(sizes))):
+            sizes = np.array(sorted(sizes))
+            q, = np.where((sizes >= size) & (sizes <= max_size) & (sizes >= min_size))
+            assert len(q) > 0,"No possible stamp size given!"
+            psizes = sizes[q]
+            q = np.argmin(np.abs(orig_size-psizes))
+            size = psizes[q]
+            
         return size
     
     def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size=None,min_size=None,sizes=None):
