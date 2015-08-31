@@ -118,7 +118,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         """
         if seeing not in self.catalogs:
             self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
-        return self.catalogs[seeing][0].copy()
+        return self.catalogs[seeing]['cat'].copy()
         
     def get_galaxy(self,seeing,n_epochs,max_size,pixel_scale,verbose=False, \
                    randomly_rotate=True,save_catalog=False):
