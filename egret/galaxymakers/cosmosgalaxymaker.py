@@ -89,7 +89,10 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         galinfo['info'] = record
         galinfo['seeing'] = seeing
         galinfo['noise'] = np.sqrt(galinfo['noise_builder_params']['variance'])
-        galinfo['orig_stamp_size_arcsec'] = galaxy.original.original_gal.image.array.shape[0]*0.03
+        try:
+            galinfo['orig_stamp_size_arcsec'] = galaxy.original.original_gal.image.array.shape[0]*0.03
+        except:
+            galinfo['orig_stamp_size_arcsec'] = galaxy.original.gal_image.array.shape[0]*0.03
         galinfo['max_size'] = max_size
         return galaxy,galinfo
     
@@ -167,7 +170,10 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         galinfo['info'] = record.copy()
         galinfo['seeing'] = seeing
         galinfo['noise'] = np.sqrt(galinfo['noise_builder_params']['variance'])
-        galinfo['orig_stamp_size_arcsec'] = galaxy.original.original_gal.image.array.shape[0]*0.03
+        try:
+            galinfo['orig_stamp_size_arcsec'] = galaxy.original.original_gal.image.array.shape[0]*0.03
+        except:
+            galinfo['orig_stamp_size_arcsec'] = galaxy.original.gal_image.array.shape[0]*0.03
         galinfo['max_size'] = max_size
         
         return galaxy,galinfo

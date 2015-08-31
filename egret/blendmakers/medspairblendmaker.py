@@ -5,7 +5,6 @@ import numpy as np
 from ..galaxymakers import ExpNGMixGalaxyMaker
 from ..medsmakers import MemoryMEDSMaker
 import fitsio
-import matplotlib.pyplot as plt
 import copy
 
 class BlendedPairMEDSMaker(object):
