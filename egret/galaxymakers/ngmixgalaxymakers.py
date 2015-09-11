@@ -88,12 +88,14 @@ class ExpNGMixGalaxyMaker(GalaxyMaker):
         
         model = 'exp'
         pars_obj = np.array(self.draw_params())
-
+        
         sigma = np.sqrt( (pars_obj[4] + pars_psf[4])/2. )
-        dims = [2.*5.*sigma]*2
+        dim = int(2.0*5.0*sigma)
+        if dim%2 == 1: dim += 1
+        dims = [dim]*2
         cen = [dims[0]/2., dims[1]/2.]
         j = UnitJacobian(cen[0],cen[1])
-
+        
         dims_psf = [2.*5.*np.sqrt(self.T_psf*(1.0 + self.sigma_T_psf*10.0)/2.0)]*2
         cen_psf = [dims_psf[0]/2., dims_psf[1]/2.]
         j_psf = UnitJacobian(cen_psf[0],cen_psf[1])
