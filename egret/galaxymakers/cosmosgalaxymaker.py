@@ -66,6 +66,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         self.real_galaxy = real_galaxy
         self.cosmosgb = COSMOSGalaxyBuilder(real_galaxy,cosmos_data,preload=preload)
         self.catalog_dtype = self.cosmosgb.generateSubfieldParameters()['schema']
+        self.catalog_dtype.append(('weight','f8'))
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
 
@@ -332,7 +333,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         # galim = final_galaxy.draw(scale=pixel.getScale())
         # using newer galsim APIs
         final_galaxy = galsim.Convolve([psf, pixel, galaxy])
-        galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')
-        
+        galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')        
+
         return self.finish_galaxy_image_ala_great3(galim,final_galaxy,galinfo,size)
     
