@@ -5,6 +5,7 @@ import os
 from .galaxymaker import GalaxyMaker
 from .great3_cosmos_gals.galaxies import COSMOSGalaxyBuilder
 from .great3_cosmos_gals.noise import PlaceholderNoiseBuilder
+from .. import utils
 
 class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
     """
@@ -246,9 +247,11 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
             
         return size
     
-    def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size=None,min_size=None,sizes=None):
+    def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size=None,min_size=None,sizes=None,use_great3_noise=False):
         """
-        Automates finishing of galaxies for a psf and pixel, but adds no extra noise.
+        Automates finishing of galaxies for a psf and pixel. 
+        
+        Add the great3 noise level for ground observations w/ use_great3_noise = True.
         
         Shear should be applied already if wanted.
         
@@ -282,58 +285,16 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
 
         final_galim = self._get_sub_image(galim,size)
 
-        return final_galim, current_var    
-
-    def finish_galaxy_image_ala_great3(self,galim,final_galaxy,galinfo,size):
-        """
-        This routine finishes the galaxies after they have been PSF convolved, etc.
-        It adds the requested amount of noise in the galinfo dict to the image 
-        taking into account the noise already in the HST image.
-        
-        You might want to do things like this first:
-        
-            galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
-            final = galsim.Convolve([psf, pixel, galaxy])        
-            galim = final.drawImage(scale=pixel_scale,method='no_pixel')
-        
-        Doing the stuff above first matches how the GREAT3 sims were done.
-        """
-        
-        if hasattr(final_galaxy,'noise'):
-            #current_var = final_galaxy.noise.applyWhiteningTo(galim)
-            current_var = final_galaxy.noise.whitenImage(galim)
+        im = final_galim.array.copy()
+        wt = np.zeros_like(im)
+        if current_var > 0:
+            wt[:,:] = 1.0/current_var
         else:
-            current_var = 0.0
+            wt[:,:] = 1.0
+        galinfo['center'] = utils.get_image_center(im,wt,rng=self.rng_np)
         
-        galinfo['noise_builder'].addNoise(self.rng,galinfo['noise_builder_params'],galim,current_var)
-
-        final_galim = self._get_sub_image(galim,size)
-        
-        return final_galim, galinfo['noise_builder_params']['variance']    
-    
-    def apply_psf_and_noise_whiten_ala_great3(self,galaxy,psf,pixel,galinfo,max_size=None,min_size=None,sizes=None):
-        """
-        Automates finishing of galaxies for a psf and pixel a la great3
-        
-        Shear should be applied already if wanted like this, for example,
-        
-            galaxy.applyLensing(g1=g1, g2=g2, mu=mu)
-        """
-
-        # cut to orig postage stamp in range
-        if max_size is None:
-            max_sz = galinfo['max_size']
+        if use_great3_noise:
+            galinfo['noise_builder'].addNoise(self.rng,galinfo['noise_builder_params'],final_galim,current_var)
+            return final_galim, galinfo['noise_builder_params']['variance']                
         else:
-            max_sz = np.min((max_size,galinfo['max_size']))
-        orig_size = int(np.ceil(galinfo['orig_stamp_size_arcsec']/pixel.getScale()))
-        size = self._get_final_size(orig_size,max_sz,min_size,sizes)
-        
-        # great3 did it like this
-        # final_galaxy = galsim.Convolve([psf, pixel, galaxy])
-        # galim = final_galaxy.draw(scale=pixel.getScale())
-        # using newer galsim APIs
-        final_galaxy = galsim.Convolve([psf, pixel, galaxy])
-        galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')        
-
-        return self.finish_galaxy_image_ala_great3(galim,final_galaxy,galinfo,size)
-    
+            return final_galim, current_var
