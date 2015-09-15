@@ -12,3 +12,7 @@ class PSFMaker(object):
 
     def make_opt_psf(self):
         raise NotImplementedError
+
+    def get_psf(self):
+        raise NotImplementedError
+    

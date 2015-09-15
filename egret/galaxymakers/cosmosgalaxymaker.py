@@ -6,6 +6,7 @@ from .galaxymaker import GalaxyMaker
 from .great3_cosmos_gals.galaxies import COSMOSGalaxyBuilder
 from .great3_cosmos_gals.noise import PlaceholderNoiseBuilder
 from .. import utils
+from ..observation import Observation
 
 class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
     """
@@ -55,21 +56,25 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
     cgm.apply_psf_and_noise_whiten(...)
     
     """
-    def __init__(self,seed=None,cosmos_data=None,real_galaxy=True,preload=False,**kw):
+    def __init__(self,seed=None,**kw):
         assert seed is not None,"Random seed must be given in cosmos galaxy maker!"
-        if cosmos_data is None:
-            cosmos_data = os.environ['GREAT3DATA']
-
+        
         self.noise_mult = 1.0
         self.rng = galsim.UniformDeviate(seed)
         self.rng_np = np.random.RandomState(int(self.rng() * 1000000))
-        self.cosmos_data = cosmos_data
-        self.real_galaxy = real_galaxy
-        self.cosmosgb = COSMOSGalaxyBuilder(real_galaxy,cosmos_data,preload=preload)
+
+        self.cosmos_data = kw['galaxymaker'].get('cosmos_data',os.environ['GREAT3DATA'])
+        self.real_galaxy = kw['galaxymaker'].get('real_galaxy',True)
+        self.preload = kw['galaxymaker'].get('preload',False)
+        
+        self.cosmosgb = COSMOSGalaxyBuilder(self.real_galaxy,self.cosmos_data,preload=self.preload)
         self.catalog_dtype = self.cosmosgb.generateSubfieldParameters()['schema']
         self.catalog_dtype.append(('weight','f8'))
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
+
+        self.conf = {}
+        self.conf.update(kw)
 
     def get_galaxy_from_info(self,record_in,seeing,n_epochs,max_size,pixel_scale):
         """
@@ -125,8 +130,8 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
             self.build_catalog_for_seeing(seeing,verbose=verbose,randomly_rotate=randomly_rotate)
         return self.catalogs[seeing]['cat'].copy()
         
-    def get_galaxy(self,seeing,n_epochs,max_size,pixel_scale,verbose=False, \
-                   randomly_rotate=True,save_catalog=False):
+    def get_prepsf_galaxy(self,seeing,n_epochs,max_size,pixel_scale,verbose=False, \
+                          randomly_rotate=True,save_catalog=False):
         """
         Get a galaxy from COSMOS postage stamp a la GREAT3.
         
@@ -247,7 +252,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
             
         return size
     
-    def apply_psf_and_noise_whiten(self,galaxy,psf,pixel,galinfo,max_size=None,min_size=None,sizes=None,use_great3_noise=False):
+    def apply_psf_and_noise_whiten(self,galaxy,galinfo,pixel,psf=None,max_size=None,min_size=None,sizes=None,use_great3_noise=False):
         """
         Automates finishing of galaxies for a psf and pixel. 
         
@@ -274,7 +279,12 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         # final_galaxy = galsim.Convolve([psf, pixel, galaxy])
         # galim = final_galaxy.draw(scale=pixel.getScale())
         # using newer galsim APIs
-        final_galaxy = galsim.Convolve([psf, pixel, galaxy])
+        if psf is not None:
+            final_galaxy = galsim.Convolve([psf, pixel, galaxy])
+        else:
+            final_galaxy = galsim.Convolve([pixel, galaxy])
+        galinfo['galsim_object'] = final_galaxy
+        
         galim = final_galaxy.drawImage(scale=pixel.getScale(),method='no_pixel')
         
         if hasattr(final_galaxy,'noise'):
@@ -298,3 +308,69 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
             return final_galim, galinfo['noise_builder_params']['variance']                
         else:
             return final_galim, current_var
+
+    def get_extra_data_dtype(self):
+        return [('cosmos_id','i8'),('g1_intrinsic','f8'),('g2_intrinsic','f8')]
+
+    def get_extra_percutout_data_dtype(self):
+        return [('variance','f8')]
+        
+    def get_galaxy(self,psf=None,g=None,n_epochs=None,pixel_scale=None,seeing=None,**kwargs):
+        if n_epochs is None:
+            n_epochs = self.conf.get('n_epochs',1)
+
+        if pixel_scale is None:
+            key = 'pixel_scale'
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            pixel_scale = self.conf['pixel_scale']
+
+        if g is None:
+            key = 'g'
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            g = self.conf['g']
+
+        if seeing is None:
+            key = 'seeing'
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            seeing = self.conf.get(key)
+            
+        for key in ['max_size','min_size','sizes']:
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+
+        psf['galsim_object'] = psf.get('galsim_object',None)
+        
+        galaxy,galinfo = self.get_prepsf_galaxy(seeing,n_epochs,self.conf['max_size'],pixel_scale, \
+                                                verbose=self.conf['galaxymaker'].get('verbose',False), \
+                                                randomly_rotate=self.conf['galaxymaker'].get('randomly_rotate',True), \
+                                                save_catalog=self.conf['galaxymaker'].get('save_catalog',False))
+        
+        pixel = galsim.Pixel(scale=pixel_scale)
+        galaxy = galaxy.shear(g1=g[0], g2=g[1])            
+        
+        final_gal_image,variance = self.apply_psf_and_noise_whiten(galaxy,galinfo,pixel,psf=psf['galsim_object'], \
+                                                                   max_size=self.conf['max_size'], \
+                                                                   min_size=self.conf['min_size'], \
+                                                                   sizes=self.conf['sizes'], \
+                                                                   use_great3_noise=self.conf['galaxymaker'].get('use_great3_noise',False))
+        o = Observation()
+        o.image = final_gal_image.array.copy()
+        wt = np.zeros_like(im)
+        wt[:,:] = 1.0/variance
+        o.weight = wt
+        row,col = galinfo['center']
+        o.update(galinfo)
+        o['row'] = row
+        o['col'] = col
+        o['variance'] = variance
+        o['pixel_scale'] = pixel_scale
+        o['g'] = g
+        o['n_epochs'] = n_epochs
+        o.psf = psf
+        o['galsim_image'] = final_gal_image
+        o['prepsf_galsim_object'] = galaxy
+        o['extra_percutout_data'] = {'variance':variance}
+        gi = np.array([galinfo['info']],dtype=self.catalog_dtype)
+        o['extra_data'] = dict(cosmos_id=gi['cosmos_id'][0], \
+                               g1_intrinsic=gi['g1_intrinsic'][0], \
+                               g2_intrinsic=gi['g2_intrinsic'][0])
+        return o

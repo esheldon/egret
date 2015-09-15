@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import galsim
 from .psfmaker import PSFMaker
+from ..observation import Observation
 
 class DESPSFMaker(PSFMaker):
     """
@@ -15,9 +16,13 @@ class DESPSFMaker(PSFMaker):
     M. R. Becker 2015
     E. Sheldon 2014
     """
-    def __init__(self,seed=None):
-        self.rng = np.random.RandomState(seed=seed)
+    def __init__(self,seed=None,**kw):
+        assert seed is not None,"Random seed must be given in DES psf maker!"
 
+        self.rng = np.random.RandomState(seed)
+        self.conf = {}
+        self.conf.update(kw)
+        
     def make_opt_psf(self,image_size=None,pixel_scale=None):
         """make DES optics PSF"""
         assert image_size is not None,"You must specify an image size!"
@@ -83,6 +88,48 @@ class DESPSFMaker(PSFMaker):
         else:
             return psf
 
+    def get_psf(self,pixel_scale=None,seeing=None,**kwargs):
+        """
+        produce a DES-like PSF
+        
+        pixel_scale: pixel scale in arcsec
+        seeing: atmos seeing in arcsec
+        min_size: size of PSF stamp
+        psf: previous PSF from this function (optional)
+            can be used to produce the same PSF model, but rendered with a shift in the center
+        shift: shift in arcsec of PSF model center        
+        """
+        if pixel_scale is None:
+            key = 'pixel_scale'
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            pixel_scale = self.conf['pixel_scale']
+            
+        if seeing is None:
+            key = 'seeing'
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            seeing = self.conf.get(key)
+            
+        for key in ['min_size']:
+            assert key in self.conf,"You must specify '%s' for stamps!" % key
+
+        if 'psf' not in kwargs:
+            psf = self.make_psf(image_size=self.conf['min_size'], \
+                                pixel_scale=pixel_scale, \
+                                atmos_psf_fwhm=seeing, \
+                                full_output=False)
+        else:
+            psf = kwargs['psf']['galsim_object']
+        
+        if 'shift' in kwargs:
+            psf = psf.shift(kwargs['shift'][0],kwargs['shift'][1])
+        
+        psf_im = psf.drawImage(nx=self.conf['min_size'],ny=self.conf['min_size'],scale=pixel_scale)
+        
+        p = Observation()
+        p.image = psf_im.array.copy()
+        p['galsim_image'] = psf_im
+        p['galsim_object'] = psf
+        return p
 
 def test():
     import matplotlib.pyplot as plt
