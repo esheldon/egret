@@ -357,10 +357,10 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         wt = np.zeros_like(im)
         wt[:,:] = 1.0/variance
         o.weight = wt
-        row,col = galinfo['center']
+        xcen,ycen = galinfo['center']
         o.update(galinfo)
-        o['row'] = row
-        o['col'] = col
+        o['row'] = xcen
+        o['col'] = ycen
         o['variance'] = variance
         o['pixel_scale'] = pixel_scale
         o['g'] = g
@@ -368,7 +368,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         o.psf = psf
         o['galsim_image'] = final_gal_image
         o['prepsf_galsim_object'] = galaxy
-        o['extra_percutout_data'] = {'variance':variance}
+        o['extra_percutout_data'] = {'variance':[variance]}
         gi = np.array([galinfo['info']],dtype=self.catalog_dtype)
         o['extra_data'] = dict(cosmos_id=gi['cosmos_id'][0], \
                                g1_intrinsic=gi['g1_intrinsic'][0], \

@@ -2,20 +2,24 @@
 import numpy as np
 from .utils import get_maker
 from . import utils
+from . import medsmakers
+import fitsio
 
 class SimpSimMaker(dict):
     def __init__(self,conf,global_seed,Nseeds=1,seed_index=0):
         self.update(conf)
 
-        self.set_defaults()
+        self.set_defaults(global_seed,Nseeds,seed_index)
         self.set_seeds()
-        self.set_galaxy_psf_makers()    
+        self.set_galaxy_psf_makers()
         
-    def set_defaults()
+    def set_defaults(self,global_seed,Nseeds,seed_index)
         self['global_seed'] = global_seed
-        self['Nseeds'] = self.get('Nseeds',1)
-        self['seed_index'] = self.get('seed_index',0)
-
+        self['Nseeds'] = self.get('Nseeds',Nseeds)
+        self['seed_index'] = self.get('seed_index',seed_index)
+        self['seed_fmt'] = self.get('seed_fmt','%06d')
+        self['Ngals'] = self.get('Ngals',1)
+        
         if 'sizes' not in self:
             self['sizes'] = utils.get_fft_sizes(min_size=self['min_size'],max_size=self['max_size'])        
 
@@ -38,4 +42,78 @@ class SimpSimMaker(dict):
         self.psf_seeds = self.rng.choice(10000000,size=self['Nseeds'],replace=False)
 
     def get_object(self):
-        pass
+        # get PSF
+        psf = self.psf_maker.get_psf()
+
+        # get gal
+        gal = self.galaxy_maker.get_galaxy(psf=psf)
+
+        # recenter - did I swap row,col? #FIXME
+        dx = gal['row'] - gal.image.shape[0]/2.0
+        dy = gal['col'] - gal.image.shape[1]/2.0
+        psf = self.psf_maker.get_psf(psf=psf,shift=[dx,dy])
+
+        # set the psf
+        gal.psf = psf
+        
+        return gal
+    
+    def make_meds(self,outputbase):
+        psfs = []
+        mm = medsmakers.MemoryMEDSMaker(extra_data=self['extra_data'],extra_percutout_data=self['extra_percutout_data'])
+
+        for i in xrange(self['Ngals']):
+            gal = self.get_object()
+            seg = np.zeros_like(gal.image,dtype='i4')
+            seg[:,:] = i+1
+            row,col = galinfo['row'],galinfo['col']
+
+            # append the psf
+            psfs.append((i,gal.psf.image.copy()))
+            psf_size = gal.psf.image.shape[0]
+            
+            # put it into meds
+            objinfo = dict(id=i,
+                           number=i+1,
+                           orig_row=np.array([-99,row]),
+                           orig_col=[-99,col],
+                           orig_start_row=[-99,0],
+                           orig_start_col=[-99,0],
+                           dudrow=[-99,pixel_scale],
+                           dudcol=[-99,0.0],
+                           dvdrow=[-99,0.0],
+                           dvdcol=[-99,pixel_scale],
+                           cutout_row=[-99,row],
+                           cutout_col=[-99,col])
+            objinfo.update(gal['extra_data'])
+
+            pdata = {}
+            for nm,tp in self['extra_percutout_data']:
+                pdata[nm] = [-99.0]
+            pdata['psf_id'].append(i)
+            for nm in gal['extra_percutout_data'].keys():
+                assert nm in pdata,"Percutout data %s not found!" % nm
+                pdata[nm].extend(gal['extra_percutout_data'][nm])
+            objinfo.update(pdata)
+
+            mm.add_object(objinfo,[np.zeros_like(im),im],[np.zeros_like(wt),wt],[np.zeros_like(seg),seg])
+            
+            del gal
+            del objinfo
+            del seg
+            del row
+            del col
+            del pdata
+            del nm
+            del tp
+
+        tail = '%s.fits' % self['seed_fmt']
+        tail = tail % self['seed_index']
+        mfname = outputbase+'_meds'+mtail
+        mm.write(mfname)
+        mm.fpack()
+        os.remove(mfname)
+        
+        psfs = np.array(psfs,dtype=[('psf_id','i8'),('psf_im','f8',(psf_size,psf_size))])
+        pfname = outputbase+'_psf'+mtail
+        fitsio.write(pfname),psfs,clobber=True)
