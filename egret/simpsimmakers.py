@@ -96,7 +96,7 @@ class SimpSimMaker(dict):
                 print "gal:",i
                 sys.stdout.flush()
 
-            if i > 0:
+            if i == 1:
                 self.start_time = time.time()
                 
             gal = self.get_object()
