@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+"""
+    %prog [options] config_file
+    Make a sim with egret."""
+from __future__ import print_function
+import os
+import sys
+import fitsio
+from egret.simpsimmakers import SimpSimMaker
+import numpy as np
+
+from optparse import OptionParser
+parser = OptionParser(__doc__)
+
+parser.add_option("--global-seed",default=None,
+                  help=("global seed for random number generator"))
+
+parser.add_option("--nseeds",default=1,
+                  help=("number of seeds to use for parallel sim generation (should be equal to the number of processes running)"))
+
+parser.add_option("--seed-index", default=0,
+                  help=("zero-indexed process number for parallel sim generation"))
+
+parser.add_option("--silent", default=False, action="store_false",
+                  help=("egret will be very quiet"))
+
+parser.add_option("--output-base", default='',
+                  help=("base name for outputs"))
+
+def read_yaml(config_path):
+    """
+    read from the file assuming it is yaml
+    """
+    import yaml
+    with open(config_path) as fobj:
+        conf=yaml.load(fobj)
+    return conf
+
+if __name__ == '__main__':
+    options, args = parser.parse_args(sys.argv[1:])
+    if len(args) < 1:
+        parser.print_help()
+        sys.exit(45)
+
+    config_file = args[0]
+    out_base = args[1]
+
+    config = read_yaml(config_file)
+    config['silent'] = config.get('silent',options.silent)
+    if len(options.output_base) > 0:
+        config['output_base'] = options.output_base
+
+    if not config['silent']:
+        import pprint
+        pprint.pprint(config)
+        sys.stdout.flush()
+
+    if options.global_seed is None:
+        global_seed = int(np.random.uniform(low=0,high=4294967295))
+    else:
+        global_seed = options.global_seed
+        
+    ss = SimpSimMaker(config,global_seed,Nseeds=options.nseeds,seed_index=options.seed_index)
+    ss.make_meds()

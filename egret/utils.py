@@ -2,6 +2,17 @@
 import numpy as np
 import ngmix
 
+def get_maker(full_name):
+    name = full_name.lower().replace('-','')
+    if name == "great3cosmos":
+        from .galaxymakers import GREAT3COSMOSGalaxyMaker
+        return GREAT3COSMOSGalaxyMaker
+    elif name == "despsf":
+        from .psfmakers import DESPSFMaker
+        return DESPSFMaker
+    else:
+        assert False,"Maker '%s' not found!" % full_name
+
 def get_image_center(im,wt,rng=None,ntry=10,T0=10.0,**em_pars):
     """
     get the image center via fitting a single Gaussian with EM

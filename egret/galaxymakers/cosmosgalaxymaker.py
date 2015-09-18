@@ -354,7 +354,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
                                                                    use_great3_noise=self.conf['galaxymaker'].get('use_great3_noise',False))
         o = Observation()
         o.image = final_gal_image.array.copy()
-        wt = np.zeros_like(im)
+        wt = np.zeros_like(o.image)
         wt[:,:] = 1.0/variance
         o.weight = wt
         xcen,ycen = galinfo['center']
@@ -370,7 +370,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         o['prepsf_galsim_object'] = galaxy
         o['extra_percutout_data'] = {'variance':[variance]}
         gi = np.array([galinfo['info']],dtype=self.catalog_dtype)
-        o['extra_data'] = dict(cosmos_id=gi['cosmos_id'][0], \
+        o['extra_data'] = dict(cosmos_id=gi['cosmos_ident'][0], \
                                g1_intrinsic=gi['g1_intrinsic'][0], \
                                g2_intrinsic=gi['g2_intrinsic'][0])
         return o
