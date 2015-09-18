@@ -357,10 +357,10 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         wt = np.zeros_like(o.image)
         wt[:,:] = 1.0/variance
         o.weight = wt
-        xcen,ycen = galinfo['center']
+        row,col = galinfo['center']
         o.update(galinfo)
-        o['row'] = xcen
-        o['col'] = ycen
+        o['row'] = row
+        o['col'] = col
         o['variance'] = variance
         o['pixel_scale'] = pixel_scale
         o['g'] = g
