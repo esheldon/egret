@@ -71,11 +71,11 @@ class SimpSimMaker(dict):
         # get gal
         gal = self.galaxy_maker.get_galaxy(psf=psf)
 
-        # recenter - did I swap row,col? #FIXME
-        dx = gal['row'] - gal.image.shape[0]/2.0
-        dy = gal['col'] - gal.image.shape[1]/2.0
-        psf = self.psf_maker.get_psf(psf=psf,shift=[dx,dy])
-
+        # recenter
+        drow = gal['row'] - gal.image.shape[0]/2.0
+        dcol = gal['col'] - gal.image.shape[1]/2.0
+        psf = self.psf_maker.get_psf(psf=psf,shift=[dcol,drow]) # swap for input to dx,dy in galsim
+        
         # set the psf
         gal.psf = psf
         

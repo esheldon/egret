@@ -94,26 +94,28 @@ class DESPSFMaker(PSFMaker):
         
         pixel_scale: pixel scale in arcsec
         seeing: atmos seeing in arcsec
-        min_size: size of PSF stamp
+        psfmaker: dict of PSF-specific options
         psf: previous PSF from this function (optional)
             can be used to produce the same PSF model, but rendered with a shift in the center
-        shift: shift in arcsec of PSF model center        
+        shift: shift in arcsec of PSF model center, input as [col,row]
+        
         """
         if pixel_scale is None:
             key = 'pixel_scale'
-            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            assert key in self.conf,"You must specify '%s' for the PSF!" % key
             pixel_scale = self.conf['pixel_scale']
             
         if seeing is None:
             key = 'seeing'
-            assert key in self.conf,"You must specify '%s' for stamps!" % key
+            assert key in self.conf,"You must specify '%s' for the PSF!" % key
             seeing = self.conf.get(key)
-            
-        for key in ['min_size']:
-            assert key in self.conf,"You must specify '%s' for stamps!" % key
+
+        assert 'psfmaker' in self.conf,"You must specify '%s' for the PSF!" % 'psfmaker'
+        assert 'size' in self.conf['psfmaker'],"You must specify '%s' for the PSF!" % 'size'
+        psf_size = self.conf['psfmaker']['size']
 
         if 'psf' not in kwargs:
-            psf = self.make_psf(image_size=self.conf['min_size'], \
+            psf = self.make_psf(image_size=psf_size, \
                                 pixel_scale=pixel_scale, \
                                 atmos_psf_fwhm=seeing, \
                                 full_output=False)
@@ -123,7 +125,7 @@ class DESPSFMaker(PSFMaker):
         if 'shift' in kwargs:
             psf = psf.shift(kwargs['shift'][0],kwargs['shift'][1])
         
-        psf_im = psf.drawImage(nx=self.conf['min_size'],ny=self.conf['min_size'],scale=pixel_scale)
+        psf_im = psf.drawImage(nx=psf_size,ny=psf_size,scale=pixel_scale)
         
         p = Observation()
         p.image = psf_im.array.copy()
