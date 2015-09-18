@@ -12,13 +12,10 @@ import numpy as np
 from optparse import OptionParser
 parser = OptionParser(__doc__)
 
-parser.add_option("--global-seed",default=None,
-                  help=("global seed for random number generator"))
-
-parser.add_option("--nseeds",default=1,
+parser.add_option("--num-seeds",default=1, type="int",
                   help=("number of seeds to use for parallel sim generation (should be equal to the number of processes running)"))
 
-parser.add_option("--seed-index", default=0,
+parser.add_option("--seed-index", default=0, type="int",
                   help=("zero-indexed process number for parallel sim generation"))
 
 parser.add_option("--silent", default=False, action="store_false",
@@ -49,16 +46,16 @@ if __name__ == '__main__':
     config['silent'] = config.get('silent',options.silent)
     if len(options.output_base) > 0:
         config['output_base'] = options.output_base
-
-    if not config['silent']:
-        import pprint
-        pprint.pprint(config)
-        sys.stdout.flush()
-
-    if options.global_seed is None:
-        global_seed = int(np.random.uniform(low=0,high=4294967295))
-    else:
-        global_seed = options.global_seed
         
-    ss = SimpSimMaker(config,global_seed,Nseeds=options.nseeds,seed_index=options.seed_index)
+    if 'global_seed' not in config:
+        global_seed = int(np.random.uniform(low=0,high=4294967295))
+        config['global_seed'] = global_seed
+
+    if 'num_seeds' not in config:
+        config['num_seeds'] = options.num_seeds
+
+    if 'seed_index' not in config:
+        config['seed_index'] = options.seed_index
+        
+    ss = SimpSimMaker(config,num_seeds=options.num_seeds,seed_index=options.seed_index)
     ss.make_meds()

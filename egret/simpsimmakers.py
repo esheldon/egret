@@ -8,18 +8,24 @@ import os,sys
 import time
 
 class SimpSimMaker(dict):
-    def __init__(self,conf,global_seed,Nseeds=1,seed_index=0):
+    def __init__(self,conf,num_seeds=1,seed_index=0):
         self.global_start_time = time.time()
         self.update(conf)
 
-        self.set_defaults(global_seed,Nseeds,seed_index)
+        self.set_defaults(num_seeds,seed_index)
+
+        if not self['silent']:
+            import pprint
+            pprint.pprint(self)
+            sys.stdout.flush()
+        
+        self.set_extra_and_percutout_data()
         self.set_seeds()
         self.set_galaxy_psf_makers()
         
-    def set_defaults(self,global_seed,Nseeds,seed_index):
+    def set_defaults(self,num_seeds,seed_index):
         self['silent'] = self.get('silent',True)
-        self['global_seed'] = global_seed
-        self['Nseeds'] = self.get('Nseeds',Nseeds)
+        self['num_seeds'] = self.get('num_seeds',num_seeds)
         self['seed_index'] = self.get('seed_index',seed_index)
         self['seed_fmt'] = self.get('seed_fmt','%06d')
         self['Ngals'] = self.get('Ngals',1)
@@ -27,13 +33,19 @@ class SimpSimMaker(dict):
         if 'sizes' not in self:
             self['sizes'] = utils.get_fft_sizes(min_size=self['min_size'],max_size=self['max_size'])        
 
-        self['extra_data'] = self.get('extra_data',[])
-        self['extra_percutout_data'] = self.get('extra_percutout_data',[])
-        self['extra_percutout_data'].extend([('psf_id','i8')])
-
         self['output_base'] = self.get('output_base','')
         if len(self['output_base']) > 0 and self['output_base'][-1] != '_':
             self['output_base'] += '_'
+
+    def set_extra_and_percutout_data(self):
+        self.extra_data = self.get('extra_data',[])
+        self.extra_percutout_data = self.get('extra_percutout_data',[])
+        self.extra_percutout_data = [('psf_id','i8')]
+
+    def set_seeds(self):
+        self.rng = np.random.RandomState(self['global_seed'])
+        self.galaxy_seeds = self.rng.choice(10000000,size=self['num_seeds'],replace=False)
+        self.psf_seeds = self.rng.choice(10000000,size=self['num_seeds'],replace=False)
         
     def set_galaxy_psf_makers(self):
         if not self['silent']:
@@ -42,8 +54,8 @@ class SimpSimMaker(dict):
 
         self.galaxy_maker = get_maker(self['galaxymaker']['type'])        
         self.galaxy_maker = self.galaxy_maker(seed=self.galaxy_seeds[self['seed_index']],**self)
-        self['extra_data'].extend(self.galaxy_maker.get_extra_data_dtype())
-        self['extra_percutout_data'].extend(self.galaxy_maker.get_extra_percutout_data_dtype())
+        self.extra_data.extend(self.galaxy_maker.get_extra_data_dtype())
+        self.extra_percutout_data.extend(self.galaxy_maker.get_extra_percutout_data_dtype())
 
         if not self['silent']:
             print "getting psf maker..."
@@ -52,11 +64,6 @@ class SimpSimMaker(dict):
         self.psf_maker = get_maker(self['psfmaker']['type'])
         self.psf_maker = self.psf_maker(seed=self.psf_seeds[self['seed_index']],**self)
         
-    def set_seeds(self):
-        self.rng = np.random.RandomState(self['global_seed'])
-        self.galaxy_seeds = self.rng.choice(10000000,size=self['Nseeds'],replace=False)
-        self.psf_seeds = self.rng.choice(10000000,size=self['Nseeds'],replace=False)
-
     def get_object(self):
         # get PSF
         psf = self.psf_maker.get_psf()
@@ -78,7 +85,7 @@ class SimpSimMaker(dict):
         outputbase = self['output_base']
 
         psfs = []
-        mm = medsmakers.MemoryMEDSMaker(extra_data=self['extra_data'],extra_percutout_data=self['extra_percutout_data'])
+        mm = medsmakers.MemoryMEDSMaker(extra_data=self.extra_data,extra_percutout_data=self.extra_percutout_data)
 
         if not self['silent']:
             print "making galaxies..."
@@ -117,7 +124,7 @@ class SimpSimMaker(dict):
             objinfo.update(gal['extra_data'])
 
             pdata = {}
-            for nm,tp in self['extra_percutout_data']:
+            for nm,tp in self.extra_percutout_data:
                 pdata[nm] = [-99.0]
             pdata['psf_id'].append(i)
             for nm in gal['extra_percutout_data'].keys():
