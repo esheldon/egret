@@ -24,10 +24,18 @@
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """File containing the classes that generate parameters and catalogs for galaxies."""
 import galsim
-import pyfits
 import os
 import numpy as np
 import math
+
+try:
+    import astropy.io.fits as pyfits
+except:
+    try:
+        import pyfits
+    except:
+        raise ImportError("could not import pyfits or astropy.io.fits")
+
 
 # START OF HACK
 #from . import constants
