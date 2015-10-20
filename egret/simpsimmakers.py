@@ -107,6 +107,9 @@ class SimpSimMaker(dict):
             # append the psf
             psfs.append((i,gal.psf.image.copy()))
             psf_size = gal.psf.image.shape[0]
+
+            # we want this copied to the meds object_data extension
+            shear_index = gal['extra_data']['shear_index']
             
             # put it into meds
             objinfo = dict(id=i,
@@ -120,7 +123,9 @@ class SimpSimMaker(dict):
                            dvdrow=[-99,0.0],
                            dvdcol=[-99,gal['pixel_scale']],
                            cutout_row=[-99,row],
-                           cutout_col=[-99,col])
+                           cutout_col=[-99,col],
+                           shear_index=[-99,shear_index])
+
             objinfo.update(gal['extra_data'])
 
             pdata = {}

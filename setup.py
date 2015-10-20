@@ -17,5 +17,6 @@ setup(name="egret",
                 'egret.galaxymakers',
                 'egret.galaxymakers.great3_cosmos_gals',
                 'egret.blendmakers',
+                'egret.shearmakers',
                 'egret.psfmakers'])
                 

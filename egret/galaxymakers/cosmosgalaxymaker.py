@@ -73,8 +73,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         self.catalog_dtype.append(('n_epochs','i4'))
         self.catalogs = {}
 
-        self.conf = {}
-        self.conf.update(kw)
+        self._setup(**kw)
 
     def get_galaxy_from_info(self,record_in,seeing,n_epochs,max_size,pixel_scale):
         """
@@ -315,7 +314,14 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
     def get_extra_percutout_data_dtype(self):
         return [('variance','f8')]
         
-    def get_galaxy(self,psf=None,g=None,n_epochs=None,pixel_scale=None,seeing=None,**kwargs):
+    def get_galaxy(self,
+                   psf=None,
+                   shear=None,
+                   n_epochs=None,
+                   pixel_scale=None,
+                   seeing=None,
+                   **kwargs):
+
         if n_epochs is None:
             n_epochs = self.conf.get('n_epochs',1)
 
@@ -324,10 +330,16 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
             assert key in self.conf,"You must specify '%s' for stamps!" % key
             pixel_scale = self.conf['pixel_scale']
 
-        if g is None:
-            key = 'g'
-            assert key in self.conf,"You must specify '%s' for stamps!" % key
-            g = self.conf['g']
+        if shear is None:
+            shdict = self.shearpdf.sample()
+            shear = shdict['shear']
+            shear_index = shdict['shear_index']
+        else:
+            from ngmix import Shape
+            if not isinstance(shear, ngmix.Shape):
+                # this performs checks
+                shear = Shape(shear[0], shear[1])
+            shear_index = -1
 
         if seeing is None:
             key = 'seeing'
@@ -345,7 +357,7 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
                                                 save_catalog=self.conf['galaxymaker'].get('save_catalog',False))
         
         pixel = galsim.Pixel(scale=pixel_scale)
-        galaxy = galaxy.shear(g1=g[0], g2=g[1])            
+        galaxy = galaxy.shear(g1=shear.g1, g2=shear.g2)            
         
         final_gal_image,variance = self.apply_psf_and_noise_whiten(galaxy,galinfo,pixel,psf=psf['galsim_object'], \
                                                                    max_size=self.conf['max_size'], \
@@ -363,7 +375,6 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         o['col'] = col
         o['variance'] = variance
         o['pixel_scale'] = pixel_scale
-        o['g'] = g
         o['n_epochs'] = n_epochs
         o.psf = psf
         o['galsim_image'] = final_gal_image
@@ -372,5 +383,9 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         gi = np.array([galinfo['info']],dtype=self.catalog_dtype)
         o['extra_data'] = dict(cosmos_id=gi['cosmos_ident'][0], \
                                g1_intrinsic=gi['g1_intrinsic'][0], \
-                               g2_intrinsic=gi['g2_intrinsic'][0])
+                               g2_intrinsic=gi['g2_intrinsic'][0],
+                               shear=shear,
+                               shear_index=shear_index)
         return o
+
+

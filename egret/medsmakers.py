@@ -124,7 +124,8 @@ class MemoryMEDSMaker(object):
                  ('dvdrow', 'f8', (nmax,)),
                  ('dvdcol', 'f8', (nmax,)),
                  ('cutout_row', 'f8', (nmax,)),
-                 ('cutout_col', 'f8', (nmax,))]
+                 ('cutout_col', 'f8', (nmax,)),
+                 ('shear_index','i8')]
 
         self.vector_names = ['file_id','orig_row','orig_col','orig_start_row','orig_start_col',
                              'dudrow','dudcol','dvdrow','dvdcol','cutout_row','cutout_col']
