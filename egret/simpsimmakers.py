@@ -6,6 +6,7 @@ from . import medsmakers
 import fitsio
 import os,sys
 import time
+from .shearmakers import get_shear_maker
 
 class SimpSimMaker(dict):
     def __init__(self,conf,num_seeds=1,seed_index=0):
@@ -13,6 +14,7 @@ class SimpSimMaker(dict):
         self.update(conf)
 
         self.set_defaults(num_seeds,seed_index)
+        self.setup_shears()
 
         if not self['silent']:
             import pprint
@@ -36,6 +38,16 @@ class SimpSimMaker(dict):
         self['output_base'] = self.get('output_base','')
         if len(self['output_base']) > 0 and self['output_base'][-1] != '_':
             self['output_base'] += '_'
+
+    def setup_shears(self):
+        if 'shear' not in self:
+            print "no shear specified"
+            shearpdf = None
+        else:
+            shearpdf = get_shear_maker(self['shear'])
+            print "loaded shearpdf:",shearpdf
+            
+        self.shearpdf = shearpdf
 
     def set_extra_and_percutout_data(self):
         self.extra_data = self.get('extra_data',[])
@@ -64,12 +76,28 @@ class SimpSimMaker(dict):
         self.psf_maker = get_maker(self['psfmaker']['type'])
         self.psf_maker = self.psf_maker(seed=self.psf_seeds[self['seed_index']],**self)
         
+    def get_shear(self):
+        """
+        Get a shear dict.  If no shear was specified return None
+
+        The shear dict contains a ngmix.Shape object in the 'shear' field,
+        as well as further information such as 'shear_index' in the 'meta' field
+        """
+        if self.shearpdf is None:
+            return {'shear':None,
+                    'meta':{'shear_index':-1}}
+        else:
+            return self.shearpdf.sample()
+
+
     def get_object(self):
         # get PSF
         psf = self.psf_maker.get_psf()
 
         # get gal
-        gal = self.galaxy_maker.get_galaxy(psf=psf)
+        shdict = self.get_shear()
+        gal = self.galaxy_maker.get_galaxy(psf=psf, shear=shdict['shear'])
+        gal['extra_data']['shear_meta'] = shdict['meta']
 
         # recenter
         drow = gal['row'] - gal.image.shape[0]/2.0
@@ -108,8 +136,10 @@ class SimpSimMaker(dict):
             psfs.append((i,gal.psf.image.copy()))
             psf_size = gal.psf.image.shape[0]
 
-            # we want this copied to the meds object_data extension
-            shear_index = gal['extra_data']['shear_index']
+            # we want this copied to the meds object_data extension, so add it
+            # directly to objinfo (gal['extra_data'] is also added later but is
+            # not copied to the meds file)
+            shear_index = gal['extra_data']['shear_meta']['shear_index']
             
             # put it into meds
             objinfo = dict(id=i,
@@ -124,7 +154,7 @@ class SimpSimMaker(dict):
                            dvdcol=[-99,gal['pixel_scale']],
                            cutout_row=[-99,row],
                            cutout_col=[-99,col],
-                           shear_index=[-99,shear_index])
+                           shear_index=shear_index)
 
             objinfo.update(gal['extra_data'])
 
@@ -175,3 +205,5 @@ class SimpSimMaker(dict):
             print 'init took %s seconds' % ohead
             print 'used %f seconds per galaxy' % tpg
             sys.stdout.flush()
+
+

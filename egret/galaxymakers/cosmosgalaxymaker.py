@@ -330,17 +330,6 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
             assert key in self.conf,"You must specify '%s' for stamps!" % key
             pixel_scale = self.conf['pixel_scale']
 
-        if shear is None:
-            shdict = self.shearpdf.sample()
-            shear = shdict['shear']
-            shear_index = shdict['shear_index']
-        else:
-            from ngmix import Shape
-            if not isinstance(shear, ngmix.Shape):
-                # this performs checks
-                shear = Shape(shear[0], shear[1])
-            shear_index = -1
-
         if seeing is None:
             key = 'seeing'
             assert key in self.conf,"You must specify '%s' for stamps!" % key
@@ -356,8 +345,11 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
                                                 randomly_rotate=self.conf['galaxymaker'].get('randomly_rotate',True), \
                                                 save_catalog=self.conf['galaxymaker'].get('save_catalog',False))
         
+
+        if shear is not None:
+            galaxy = self._apply_shear(galaxy, shear)
+
         pixel = galsim.Pixel(scale=pixel_scale)
-        galaxy = galaxy.shear(g1=shear.g1, g2=shear.g2)            
         
         final_gal_image,variance = self.apply_psf_and_noise_whiten(galaxy,galinfo,pixel,psf=psf['galsim_object'], \
                                                                    max_size=self.conf['max_size'], \
@@ -384,8 +376,16 @@ class GREAT3COSMOSGalaxyMaker(GalaxyMaker):
         o['extra_data'] = dict(cosmos_id=gi['cosmos_ident'][0], \
                                g1_intrinsic=gi['g1_intrinsic'][0], \
                                g2_intrinsic=gi['g2_intrinsic'][0],
-                               shear=shear,
-                               shear_index=shear_index)
+                               shear=shear)
         return o
 
 
+    def _apply_shear(self, galaxy, shear):
+        from ngmix import Shape
+        if not isinstance(shear, Shape):
+            # Use a Shape object, since it performs checks
+            shear = Shape(shear[0], shear[1])
+
+        sheared_galaxy = galaxy.shear(g1=shear.g1, g2=shear.g2)            
+
+        return sheared_galaxy
